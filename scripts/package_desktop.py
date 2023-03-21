@@ -267,7 +267,7 @@ def make_update_files():
     "-UpdatesUrlPrefix", branding.desktop_updates_url,
     "-ReleaseNotesUrlPrefix", branding.desktop_changes_url
   ]
-  appcast_test_base_url = "%s/win/inno/%s/%s" % (branding.s3_base_url, common.version, common.build)
+  appcast_test_base_url = "%s/desktop/win/inno/%s/%s" % (branding.s3_base_url, common.version, common.build)
   appcast_test_args = [
     "-UpdatesUrlPrefix", appcast_test_base_url,
     "-ReleaseNotesUrlPrefix", appcast_test_base_url
@@ -342,17 +342,22 @@ def make_advinst():
     aic_content += [
       "ResetSig"
     ]
-  if arch == "x86": 
-    aic_content += [
-      "SetPackageType x86",
-      "SetAppdir -buildname DefaultBuild -path [ProgramFilesFolder][MANUFACTURER_INSTALL_FOLDER]\\[PRODUCT_INSTALL_FOLDER]",
-      'DelPrerequisite "Microsoft Visual C++ 2015-2022 Redistributable (x64)"',
-      'DelPrerequisite "Microsoft Visual C++ 2013 Redistributable (x64)"'
-    ]
   if arch == "x64": 
     aic_content += [
+      "SetPackageType x64 -buildname DefaultBuild",
+      "AddOsLc -buildname DefaultBuild -arch x64",
+      "DelOsLc -buildname DefaultBuild -arch x86",
       'DelPrerequisite "Microsoft Visual C++ 2015-2022 Redistributable (x86)"',
       'DelPrerequisite "Microsoft Visual C++ 2013 Redistributable (x86)"'
+    ]
+  if arch == "x86": 
+    aic_content += [
+      "SetPackageType x86 -buildname DefaultBuild",
+      "AddOsLc -arch x86 -buildname DefaultBuild",
+      "DelOsLc -arch x64 -buildname DefaultBuild",
+      "SetAppdir -path [ProgramFilesFolder][MANUFACTURER_INSTALL_FOLDER]\\[PRODUCT_INSTALL_FOLDER] -buildname DefaultBuild",
+      'DelPrerequisite "Microsoft Visual C++ 2015-2022 Redistributable (x64)"',
+      'DelPrerequisite "Microsoft Visual C++ 2013 Redistributable (x64)"'
     ]
   if branding.onlyoffice:
     aic_content += [
@@ -382,7 +387,6 @@ def make_advinst():
       "SetProperty ASCC_REG_PREFIX=" + branding.ascc_reg_prefix
     ]
   aic_content += [
-    "AddOsLc -buildname DefaultBuild -arch " + arch,
     "SetCurrentFeature MainFeature",
     "NewSync APPDIR " + source_dir,
     "UpdateFile APPDIR\\DesktopEditors.exe " + source_dir + "\\DesktopEditors.exe",
@@ -428,41 +432,37 @@ def make_macos():
   utils.set_cwd(branding_dir)
 
   if common.clean:
-    utils.log("\n=== Clean\n")
+    utils.log_h2("clean")
     utils.delete_dir(utils.get_env("HOME") + "/Library/Developer/Xcode/Archives")
     utils.delete_dir(utils.get_env("HOME") + "/Library/Caches/Sparkle_generate_appcast")
 
-  plist_path = "%s/%s/ONLYOFFICE/Resources/%s-%s/Info.plist" \
-      % (common.workspace_dir, branding.desktop_branding_dir, branding.desktop_package_name, suffix)
-  current_version = utils.sh_output(
-    '/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" ' + plist_path,
-    verbose=True).rstrip()
-  current_build = utils.sh_output(
-    '/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" ' + plist_path,
-    verbose=True).rstrip()
-  app_version = current_version
-
   appcast_url = branding.sparkle_base_url + "/" + suffix + "/" + branding.desktop_package_name.lower() + ".xml"
-  release_version = utils.sh_output(
+  release_bundle_version_string = utils.sh_output(
     'curl -Ls ' + appcast_url + ' 2> /dev/null' \
     + ' | xmllint --xpath "/rss/channel/item[1]/enclosure/@*[name()=\'sparkle:shortVersionString\']" -' \
     + ' | cut -f2 -d\\\"',
     verbose=True).rstrip()
-  release_build = utils.sh_output(
+  release_bundle_version = utils.sh_output(
     'curl -Ls ' + appcast_url + ' 2> /dev/null' \
     + ' | xmllint --xpath "/rss/channel/item[1]/enclosure/@*[name()=\'sparkle:version\']" -' \
     + ' | cut -f2 -d\\\"',
     verbose=True).rstrip()
 
-  utils.log("CURRENT=" + current_version + "(" + current_build + ")" \
-        + "\nRELEASE=" + release_version + "(" + release_build + ")")
+  app_version = common.version
+  bundle_version = str(int(release_bundle_version) + 1)
+  plist_path = "%s/%s/ONLYOFFICE/Resources/%s-%s/Info.plist" \
+      % (common.workspace_dir, branding.desktop_branding_dir, branding.desktop_package_name, suffix)
+  utils.sh('/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString %s" %s' \
+      % (common.version, plist_path), verbose=True)
+  utils.sh('/usr/libexec/PlistBuddy -c "Set :CFBundleVersion %s" %s' \
+      % (bundle_version, plist_path), verbose=True)
+
+  utils.log("RELEASE=" + release_bundle_version_string + "(" + release_bundle_version + ")" \
+        + "\nCURRENT=" + common.version + "(" + bundle_version + ")")
 
   dmg = make_dmg()
   if dmg:
-    if int(current_build) > int(release_build):
-      make_sparkle_updates()
-    else:
-      utils.log(release_build + " <= " + current_build)
+    make_sparkle_updates()
 
   utils.set_cwd(common.workspace_dir)
   return
