@@ -56,7 +56,7 @@ def install_deps():
   except:
     nodejs_cur = 1
   if (nodejs_cur < 14000):
-    print("Node.js version cannot be less 14.xx")
+    print("Node.js version cannot be less 14")
     print("Reinstall")
     if (base.is_dir("./node_js_setup_14.x")):
       base.delete_dir("./node_js_setup_14.x")
@@ -75,15 +75,13 @@ def install_deps():
   # java
   java_error = base.cmd("sudo", ["apt-get", "-y", "install", "openjdk-11-jdk"], True)
   if (0 != java_error):
-    java_error = base.cmd("sudo", ["apt-get", "-y", "install", "openjdk-8-jdk"], True)
-  if (0 != java_error):
     base.cmd("sudo", ["apt-get", "-y", "install", "software-properties-common"])
     base.cmd("sudo", ["add-apt-repository", "-y", "ppa:openjdk-r/ppa"])
     base.cmd("sudo", ["apt-get", "update"])
-    base.cmd("sudo", ["apt-get", "-y", "install", "openjdk-8-jdk"])
+    base.cmd("sudo", ["apt-get", "-y", "install", "openjdk-11-jdk"])
     base.cmd("sudo", ["update-alternatives", "--config", "java"])
     base.cmd("sudo", ["update-alternatives", "--config", "javac"])
-    
+
   base.writeFile("./packages_complete", "complete")
   return
 
