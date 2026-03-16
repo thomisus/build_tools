@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ENV TZ=Etc/UTC
 ENV DEBIAN_FRONTEND=noninteractive
@@ -9,25 +9,37 @@ RUN echo 'keyboard-configuration keyboard-configuration/layoutcode string us' | 
     echo 'keyboard-configuration keyboard-configuration/modelcode string pc105' | debconf-set-selections
 
 RUN apt-get -y update && \
-    apt-get -y install tar \
-                       sudo \
-                       wget
-
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.30.0/cmake-3.30.0-linux-x86_64.tar.gz && \
-    tar -xzf cmake-3.30.0-linux-x86_64.tar.gz -C /opt && \
-    ln -s /opt/cmake-3.30.0-linux-x86_64/bin/cmake /usr/local/bin/cmake && \
-    ln -s /opt/cmake-3.30.0-linux-x86_64/bin/ctest /usr/local/bin/ctest && \
-    rm cmake-3.30.0-linux-x86_64.tar.gz
+    apt-get -y install sudo \
+                       git \
+                       git-lfs \
+                       curl \
+                       wget \
+                       p7zip-full
 
 ADD . /build_tools
 WORKDIR /build_tools
 
-RUN mkdir -p /opt/python3 && \
-    wget -P /opt/python3/ https://github.com/ONLYOFFICE-data/build_tools_data/raw/refs/heads/master/python/python3.tar.gz && \
-    tar -xzf /opt/python3/python3.tar.gz -C /opt/python3 --strip-components=1
+# Install local Python
+RUN cd tools/linux && \
+    ./python.sh
 
-ENV PATH="/opt/python3/bin:${PATH}"
+# Fetch Qt binaries
+RUN cd tools/linux && \
+    ./python3/bin/python3 ./qt_binary_fetch.py amd64
 
-RUN ln -s /opt/python3/bin/python3.10 /usr/bin/python
+# Install system dependencies
+RUN cd tools/linux && \
+    ./python3/bin/python3 ./deps.py
 
-CMD ["sh", "-c", "cd tools/linux && python3 ./automate.py"]
+# Install CMake
+RUN cd tools/linux && \
+    ./cmake.sh
+
+# Fetch sysroot
+RUN cd tools/linux/sysroot && \
+    ../python3/bin/python3 ./fetch.py amd64
+
+ARG BRANCH=master
+ENV BRANCH=${BRANCH}
+
+CMD ["sh", "-c", "./tools/linux/python3/bin/python3 ./configure.py --sysroot \"1\" --clean \"0\" --update-light \"1\" --branch \"${BRANCH}\" --update \"1\" --module \"desktop server builder\" --qt-dir \"$(pwd)/tools/linux/qt_build/Qt-5.9.9\" && ./tools/linux/python3/bin/python3 ./make.py"]

@@ -66,10 +66,20 @@ exports.handlers = {
             const isMethod = doclet.kind === 'function' || doclet.kind === 'method';
             const hasTypeofEditorsTag = isMethod && doclet.tags && doclet.tags.some(tag => tag.title === 'typeofeditors' && tag.value.includes(process.env.EDITOR));
 
-            const shouldAddMethod = 
+            let shouldAddMethod = 
                 doclet.kind !== 'member' &&
                 (!doclet.longname || doclet.longname.search('private') === -1) &&
                 doclet.scope !== 'inner' && hasTypeofEditorsTag;
+
+			// class names may be the same between editors, we check against the inheritance tree
+			if (doclet.inherits) {
+				const parentClass = doclet.inherits.split('#')[0];
+				const curClass = cleanName(doclet.memberof);
+
+				if (!classesDocletsMap[curClass].augments || !classesDocletsMap[curClass].augments.includes(parentClass)) {
+					shouldAddMethod = false;
+				}
+			}
 
             if (shouldAddMethod) {
                 // if the class is not in our map, then we deleted it ourselves -> not available in the editor

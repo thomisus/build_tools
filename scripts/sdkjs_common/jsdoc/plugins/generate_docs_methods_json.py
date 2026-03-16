@@ -10,7 +10,8 @@ configs = [
     "./config/methods/word.json",
     "./config/methods/cell.json",
     "./config/methods/slide.json",
-    "./config/methods/forms.json"
+    "./config/methods/forms.json",
+    "./config/methods/pdf.json"
 ]
 
 script_path = os.path.abspath(__file__)

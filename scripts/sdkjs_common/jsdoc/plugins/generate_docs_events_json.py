@@ -10,7 +10,8 @@ configs = [
     "./config/events/word.json",
     "./config/events/cell.json",
     "./config/events/slide.json",
-    "./config/events/forms.json"
+    "./config/events/forms.json",
+    "./config/events/pdf.json"
 ]
 
 script_path = os.path.abspath(__file__)

@@ -25,6 +25,7 @@ def make():
 
     platform = native_platform
     platform_postfix = platform + base.qt_dst_postfix()
+    isWindowsXP = False if (-1 == native_platform.find("_xp")) else True
 
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "kernel")
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "kernel_network")
@@ -42,6 +43,8 @@ def make():
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "HWPFile")
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "DocxRenderer")
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "hunspell")
+    base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "StarMathConverter")
+    base.copy_lib(core_build_dir + "/lib/" + platform_postfix, archive_dir, "ooxmlsignature", "xp" if isWindowsXP else "")
     base.copy_file(git_dir + "/sdkjs/pdf/src/engine/cmap.bin", archive_dir + "/cmap.bin")
     base.copy_exe(core_build_dir + "/bin/" + platform_postfix, archive_dir, "x2t")
 

@@ -11,14 +11,16 @@ editors = [
     "word",
     "cell",
     "slide",
-    "forms"
+    "forms",
+    "pdf"
 ]
 
 editors_names = {
     "word": "Word",
     "cell": "Spreadsheet",
     "slide": "Presentation",
-    "forms": "Forms"
+    "forms": "Forms",
+    "pdf": "PDF"
 }
 
 script_path = os.path.abspath(__file__)

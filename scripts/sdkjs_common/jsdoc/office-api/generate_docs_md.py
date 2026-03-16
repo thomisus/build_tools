@@ -4,13 +4,15 @@ import re
 import shutil
 import argparse
 import generate_docs_json
+import json
 
 # Configuration files
 editors = {
     "word": "text-document-api",
     "cell": "spreadsheet-api",
     "slide": "presentation-api",
-    "forms": "form-api"
+    "forms": "form-api",
+    "pdf": "pdf-api",
 }
 
 
@@ -19,6 +21,9 @@ root = os.path.abspath(os.path.join(os.path.dirname(script_path), '../../../../.
 
 missing_examples = []
 used_enumerations = set()
+translations = {}
+missed_translations = {}
+used_translations_keys = {}
 
 cur_editor_name = None
 
@@ -34,6 +39,21 @@ def remove_js_comments(text):
     text = re.sub(r'^\s*//.*$', '', text, flags=re.MULTILINE)  # single-line
     text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)     # multi-line
     return text.strip()
+
+def get_translation(key):
+    def process_part(k):
+        if k not in translations:
+            missed_translations[k] = k
+        else:
+            used_translations_keys[k] = True
+        return translations.get(k, k)
+
+    if '\\\n' in key:
+        parts = key.split('\\\n')
+        translated_parts = [process_part(p) for p in parts]
+        return '\\\n'.join(translated_parts)
+    
+    return process_part(key)
 
 def process_link_tags(text, root=''):
     """
@@ -90,7 +110,7 @@ def correct_description(string, root='', isInTable=False):
       - All '\r' characters are replaced with '\n'.
     """
     if string is None:
-        return 'No description provided.'
+        return get_translation('No description provided.')
 
     if False == isInTable:
         # Line breaks
@@ -99,6 +119,7 @@ def correct_description(string, root='', isInTable=False):
         string = re.sub(r'<b>', '-**', string)
     else:
         string = re.sub(r'<b>', '**', string)
+        string = remove_line_breaks(string)
     
     string = re.sub(r'</b>', '**', string)
     
@@ -108,7 +129,7 @@ def correct_description(string, root='', isInTable=False):
     # Process {@link ...} constructions
     string = process_link_tags(string, root)
     
-    return string
+    return get_translation(string)
 
 def correct_default_value(value, enumerations, classes):
     if value is None or value == '':
@@ -305,12 +326,12 @@ def generate_data_types_markdown(types, enumerations, classes, root='../../'):
 
 
 def generate_class_markdown(class_name, methods, properties, enumerations, classes):
-    content = f"# {class_name}\n\nRepresents the {class_name} class.\n\n"
+    content = f"# {class_name}\n\n{get_translation(f"Represents the {class_name} class.")}\n\n"
     
     content += generate_properties_markdown(properties, enumerations, classes)
 
-    content += "\n## Methods\n\n"
-    content += "| Method | Returns | Description |\n"
+    content += f"\n## {get_translation(f"Methods")}\n\n"
+    content += f"| {get_translation(f"Method")} | {get_translation(f"Returns")} | {get_translation(f"Description")} |\n"
     content += "| ------ | ------- | ----------- |\n"
     
     for method in sorted(methods, key=lambda m: m['name']):
@@ -322,10 +343,10 @@ def generate_class_markdown(class_name, methods, properties, enumerations, class
             return_type_list = returns[0].get('type', {}).get('names', [])
             returns_markdown = generate_data_types_markdown(return_type_list, enumerations, classes, '../')
         else:
-            returns_markdown = "None"
+            returns_markdown = get_translation(f"None")
         
         # Processing the method description
-        description = remove_line_breaks(correct_description(method.get('description', 'No description provided.'), '../', True))
+        description = correct_description(method.get('description', 'No description provided.'), '../', True)
         
         # Form a link to the method document
         method_link = f"[{method_name}](./Methods/{method_name}.md)"
@@ -347,47 +368,47 @@ def generate_method_markdown(method, enumerations, classes, example_editor_name)
     
     # Syntax
     param_list = ', '.join([param['name'] for param in params if '.' not in param['name']]) if params else ''
-    content += f"## Syntax\n\n```javascript\nexpression.{method_name}({param_list});\n```\n\n"
+    content += f"## {get_translation(f"Syntax")}\n\n```javascript\nexpression.{method_name}({param_list});\n```\n\n"
     if memberof:
-        content += f"`expression` - A variable that represents a [{memberof}](../{memberof}.md) class.\n\n"
+        content += f"`expression` - {get_translation(f"A variable that represents a [{memberof}](../{memberof}.md) class.")}\n\n"
 
     # Parameters
-    content += "## Parameters\n\n"
+    content += f"## {get_translation(f"Parameters")}\n\n"
     if params:
-        content += "| **Name** | **Required/Optional** | **Data type** | **Default** | **Description** |\n"
+        content += f"| **{get_translation(f"Name")}** | **{get_translation(f"Required/Optional")}** | **{get_translation(f"Data type")}** | **{get_translation(f"Default")}** | **{get_translation(f"Description")}** |\n"
         content += "| ------------- | ------------- | ------------- | ------------- | ------------- |\n"
         for param in params:
             param_name = param.get('name', 'Unnamed')
             param_types = param.get('type', {}).get('names', []) if param.get('type') else []
             param_types_md = generate_data_types_markdown(param_types, enumerations, classes)
-            param_desc = remove_line_breaks(correct_description(param.get('description', 'No description provided.'), '../../', True))
-            param_required = "Required" if not param.get('optional') else "Optional"
+            param_desc = correct_description(param.get('description', 'No description provided.'), '../../', True)
+            param_required = f"{get_translation(f"Required")}" if not param.get('optional') else f"{get_translation(f"Optional")}"
             param_default = correct_default_value(param.get('defaultvalue', ''), enumerations, classes)
 
             content += f"| {param_name} | {param_required} | {param_types_md} | {param_default} | {param_desc} |\n"
     else:
-        content += "This method doesn't have any parameters.\n"
+        content += f"{get_translation("This method doesn't have any parameters.")}\n"
 
     # Returns
-    content += "\n## Returns\n\n"
+    content += f"\n## {get_translation(f"Returns")}\n\n"
     if returns:
         return_type_list = returns[0].get('type', {}).get('names', [])
         return_type_md = generate_data_types_markdown(return_type_list, enumerations, classes)
         content += return_type_md
     else:
-        content += "This method doesn't return any data."
+        content += get_translation(f"This method doesn't return any data.")
     
     # Example
     if example:
         # Separate comment and code, remove JS comments
         if '```js' in example:
             comment, code = example.split('```js', 1)
-            comment = remove_js_comments(comment)
-            content += f"\n\n## Example\n\n{comment}\n\n```javascript {example_editor_name}\n{code.strip()}\n"
+            comment = get_translation(remove_js_comments(comment))
+            content += f"\n\n## {get_translation(f"Example")}\n\n{comment}\n\n```javascript {example_editor_name}\n{code.strip()}\n"
         else:
             # If there's no triple-backtick structure, just show it as code
             cleaned_example = remove_js_comments(example)
-            content += f"\n\n## Example\n\n```javascript {example_editor_name}\n{cleaned_example}\n```\n"
+            content += f"\n\n## {get_translation(f"Example")}\n\n```javascript {example_editor_name}\n{cleaned_example}\n```\n"
 
     return escape_text_outside_code_blocks(content)
 
@@ -395,14 +416,14 @@ def generate_properties_markdown(properties, enumerations, classes, root='../'):
     if properties is None:
         return ''
     
-    content = "## Properties\n\n"
-    content += "| Name | Type | Description |\n"
+    content = f"## {get_translation(f"Properties")}\n\n"
+    content += f"| {get_translation(f"Name")} | {get_translation(f"Type")} | {get_translation(f"Description")} |\n"
     content += "| ---- | ---- | ----------- |\n"
 
     for prop in sorted(properties, key=lambda m: m['name']):
         prop_name = prop['name']
         prop_description = prop.get('description', 'No description provided.')
-        prop_description = remove_line_breaks(correct_description(prop_description, root, True))
+        prop_description = correct_description(prop_description, root, True)
         prop_types = prop['type']['names'] if prop.get('type') else []
         param_types_md = generate_data_types_markdown(prop_types, enumerations, classes, root)
         content += f"| {prop_name} | {param_types_md} | {prop_description} |\n"
@@ -426,8 +447,8 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
     if ptype['type'] == 'TypeUnion':
         enum_empty = True # is empty enum
 
-        content += "## Type\n\nEnumeration\n\n"
-        content += "## Values\n\n"
+        content += f"## {get_translation(f"Type")}\n\n{get_translation(f"Enumeration")}\n\n"
+        content += f"## {get_translation(f"Values")}\n\n"
         # Each top-level name in the union
         for raw_t in enumeration['type']['names']:
             ts_t = convert_jsdoc_array_to_ts(raw_t)
@@ -447,13 +468,13 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
         if enum_empty == True:
             return None
     elif enumeration['properties'] is not None:
-        content += "## Type\n\nObject\n\n"
+        content += f"## {get_translation(f"Type")}\n\n{get_translation(f"Object")}\n\n"
         content += generate_properties_markdown(enumeration['properties'], enumerations, classes)
     else:
-        content += "## Type\n\n"
+        content += f"## {get_translation(f"Type")}\n\n"
         # If it's not a union and has no properties, simply print the type(s).
         types = enumeration['type']['names']
-        t_md = generate_data_types_markdown(types, enumerations, classes)
+        t_md = generate_data_types_markdown(types, enumerations, classes, '../')
         content += t_md + "\n\n"
 
     # Example
@@ -461,11 +482,11 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
         if '```js' in example:
             comment, code = example.split('```js', 1)
             comment = remove_js_comments(comment)
-            content += f"\n\n## Example\n\n{comment}\n\n```javascript {example_editor_name}\n{code.strip()}\n"
+            content += f"\n\n## {get_translation(f"Example")}\n\n{comment}\n\n```javascript {example_editor_name}\n{code.strip()}\n"
         else:
             # If there's no triple-backtick structure
             cleaned_example = remove_js_comments(example)
-            content += f"\n\n## Example\n\n```javascript {example_editor_name}\n{cleaned_example}\n```\n"
+            content += f"\n\n## {get_translation(f"Example")}\n\n```javascript {example_editor_name}\n{cleaned_example}\n```\n"
 
     return escape_text_outside_code_blocks(content)
 
@@ -482,11 +503,13 @@ def process_doclets(data, output_dir, editor_name):
     if editor_name == 'word':
         example_editor_name += 'docx'
     elif editor_name == 'forms':
-        example_editor_name += 'pdf'
+        example_editor_name += 'forms'
     elif editor_name == 'slide':
         example_editor_name += 'pptx'
     elif editor_name == 'cell':
         example_editor_name += 'xlsx'
+    elif editor_name == 'pdf':
+        example_editor_name += 'pdf'
 
     for doclet in data:
         if doclet['kind'] == 'class':
@@ -553,7 +576,14 @@ def process_doclets(data, output_dir, editor_name):
         if not enum.get('example', ''):
             missing_examples.append(os.path.relpath(enum_file_path, output_dir))
 
-def generate(output_dir):
+def generate(output_dir, translations_file):
+    global translations
+    
+    if translations_file is not None and os.path.exists(translations_file):
+        translations = load_json(translations_file)
+    else:
+        translations = {}
+		
     os.chdir(os.path.dirname(script_path))
     
     print('Generating Markdown documentation...')
@@ -572,6 +602,21 @@ def generate(output_dir):
         used_enumerations.clear()
         process_doclets(data, output_dir, editor_name)
     
+    if translations_file is not None:
+        target_dir = os.path.dirname(translations_file)
+        
+        missed_file_path = os.path.join(target_dir, "missed_translations.json")
+        print(f'Saving missed translations to: {missed_file_path}')
+        with open(missed_file_path, 'w', encoding='utf-8') as f:
+            json.dump(missed_translations, f, ensure_ascii=False, indent=4)
+
+        unused_keys = set(translations.keys()) - set(used_translations_keys.keys())
+        unused_data = {k: translations[k] for k in unused_keys}
+        unused_file_path = os.path.join(target_dir, "unused_translations.json")
+        print(f'Saving unused translations to: {unused_file_path}')
+        with open(unused_file_path, 'w', encoding='utf-8') as f:
+            json.dump(unused_data, f, ensure_ascii=False, indent=4)   
+
     shutil.rmtree(output_dir + 'tmp_json')
     print('Done')
 
@@ -584,8 +629,20 @@ if __name__ == "__main__":
         nargs='?',  # Indicates the argument is optional
         default=f"{root}/api.onlyoffice.com/site/docs/office-api/usage-api/"  # Default value
     )
+    parser.add_argument(
+        "--translations", 
+        type=str, 
+        help="Path to the JSON file with translations",
+        nargs='?',
+        default=None
+    )
+    
     args = parser.parse_args()
-    generate(args.destination)
+    
+    if args.translations is None:
+        args.translations = args.destination + "/translations.json"
+        
+    generate(args.destination, args.translations)
     print("START_MISSING_EXAMPLES")
     print(",".join(missing_examples))
     print("END_MISSING_EXAMPLES")

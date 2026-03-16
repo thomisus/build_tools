@@ -41,6 +41,7 @@ def make():
 
     build_server_dir = root_dir + '/server'
     server_dir = base.get_script_dir() + "/../../server"
+    server_admin_panel_dir = base.get_script_dir() + "/../../server-admin-panel"
 
     base.create_dir(build_server_dir + '/DocService')
 
@@ -58,13 +59,14 @@ def make():
     base.create_dir(build_server_dir + '/Metrics/node_modules/modern-syslog/build/Release')
     base.copy_file(server_dir + "/Metrics/node_modules/modern-syslog/build/Release/core.node", build_server_dir + "/Metrics/node_modules/modern-syslog/build/Release/core.node")
 
-    # AdminPanel server part
-    base.create_dir(build_server_dir + '/AdminPanel/server')
-    base.copy_exe(server_dir + "/AdminPanel/server", build_server_dir + '/AdminPanel/server', "adminpanel")
+    if "server-admin-panel" in base.get_server_addons() and base.is_exist(server_admin_panel_dir):
+      # AdminPanel server part
+      base.create_dir(build_server_dir + '/AdminPanel/server')
+      base.copy_exe(server_admin_panel_dir + "/server", build_server_dir + '/AdminPanel/server', "adminpanel")
 
-    # AdminPanel client part
-    base.create_dir(build_server_dir + '/AdminPanel/client/build')
-    base.copy_dir(server_dir + '/AdminPanel/client/build', build_server_dir + '/AdminPanel/client/build')
+      # AdminPanel client part
+      base.create_dir(build_server_dir + '/AdminPanel/client/build')
+      base.copy_dir(server_admin_panel_dir + '/client/build', build_server_dir + '/AdminPanel/client/build')
 
     qt_dir = base.qt_setup(native_platform)
     platform = native_platform
@@ -93,6 +95,8 @@ def make():
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, converter_dir, "IWorkFile")
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, converter_dir, "HWPFile")
     base.copy_lib(core_build_dir + "/lib/" + platform_postfix, converter_dir, "DocxRenderer")
+    base.copy_lib(core_build_dir + "/lib/" + platform_postfix, converter_dir, "StarMathConverter")
+    base.copy_lib(core_build_dir + "/lib/" + platform_postfix, converter_dir, "ooxmlsignature")
     base.copy_file(git_dir + "/sdkjs/pdf/src/engine/cmap.bin", converter_dir + "/cmap.bin")
     base.copy_exe(core_build_dir + "/bin/" + platform_postfix, converter_dir, "x2t")
 
@@ -178,6 +182,12 @@ def make():
     document_templates = build_server_dir + '/../document-templates'
     base.copy_dir(document_templates_files + '/new', document_templates + '/new')
     base.copy_dir(document_templates_files + '/sample', document_templates + '/sample')
+
+    #document-formats
+    document_formats_files = server_dir + '/../document-formats'
+    document_formats = build_server_dir + '/../document-formats'
+    base.create_dir(document_formats)
+    base.copy_file(document_formats_files + '/onlyoffice-docs-formats.json', document_formats + '/onlyoffice-docs-formats.json')
 
     #license
     license_file1 = server_dir + '/LICENSE.txt'

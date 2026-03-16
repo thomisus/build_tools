@@ -13,9 +13,11 @@
     "core/UnicodeConverter/UnicodeConverter.pro",
     "core/Common/kernel.pro",
     "core/Common/Network/network.pro",
-    
+
+    "core/OdfFile/Reader/Converter/StarMath2OOXML/StarMath2OOXML.pro",
+
     "core/DesktopEditor/graphics/pro/graphics.pro",
-    
+
     "core/PdfFile/PdfFile.pro",
     "core/DjVuFile/DjVuFile.pro",
     "core/XpsFile/XpsFile.pro",
@@ -27,9 +29,11 @@
 
     "core/Apple/IWork.pro",
 
-    "core/DocxRenderer/DocxRenderer.pro",   
+    "core/DocxRenderer/DocxRenderer.pro",
 
     "core/DesktopEditor/doctrenderer/doctrenderer.pro",
+
+    "core/DesktopEditor/xmlsec/src/ooxmlsignature.pro",
 
     "[!no_x2t]core/OOXML/Projects/Linux/DocxFormatLib/DocxFormatLib.pro",
     "[!no_x2t]core/OOXML/Projects/Linux/PPTXFormatLib/PPTXFormatLib.pro",
@@ -79,19 +83,17 @@
   "multimedia" : [
     "[win,linux]desktop-sdk/ChromiumBasedEditors/videoplayerlib/videoplayerlib.pro"
   ],
-  
+
   "desktop" : [
     "core",
     "multimedia",
-    
-    "core/DesktopEditor/xmlsec/src/ooxmlsignature.pro",
 
     "desktop-sdk/ChromiumBasedEditors/lib/ascdocumentscore.pro",
     "desktop-sdk/ChromiumBasedEditors/lib/ascdocumentscore_helper.pro",
 
     "[win,linux]desktop-sdk/ChromiumBasedEditors/lib/qt_wrapper/qtascdocumentscore.pro",
     "[win,linux]desktop-apps/win-linux/ASCDocumentEditor.pro",
-    
+
     "[win]desktop-apps/win-linux/extras/projicons/ProjIcons.pro",
     "[win,!win_xp]desktop-apps/win-linux/extras/update-daemon/UpdateDaemon.pro"
   ],

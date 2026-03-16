@@ -33,7 +33,7 @@ def make():
 
   old_cur = os.getcwd()
   os.chdir(base_dir)
-  base.common_check_version("socketio", "1", clean)
+  base.common_check_version("socketio", "2", clean)
   os.chdir(old_cur)
 
   if not base.is_dir(base_dir + "/socket.io-client-cpp"):

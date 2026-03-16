@@ -5,13 +5,15 @@ import re
 import shutil
 import argparse
 import generate_docs_events_json
+import json
 
 # Папки для каждого editor_name
 editors = {
     "word": "text-document-api",
     "cell": "spreadsheet-api",
     "slide": "presentation-api",
-    "forms": "form-api"
+    "forms": "form-api",
+    "pdf": "pdf-api"
 }
 
 script_path = os.path.abspath(__file__)
@@ -19,7 +21,9 @@ root = os.path.abspath(os.path.join(os.path.dirname(script_path), '../../../../.
 
 missing_examples = []
 used_enumerations = set()
-
+translations = {}
+missed_translations = {}
+used_translations_keys = {}
 
 def load_json(path):
     with open(path, 'r', encoding='utf-8') as f:
@@ -37,6 +41,20 @@ def remove_js_comments(text):
     text = re.sub(r'/\*.*?\*/', '', text, flags=re.DOTALL)
     return text.strip()
 
+def get_translation(key):
+    def process_part(k):
+        if k not in translations:
+            missed_translations[k] = k
+        else:
+            used_translations_keys[k] = True
+        return translations.get(k, k)
+
+    if '\\\n' in key:
+        parts = key.split('\\\n')
+        translated_parts = [process_part(p) for p in parts]
+        return '\\\n'.join(translated_parts)
+    
+    return process_part(key)
 
 def correct_description(string, root='', isInTable=False):
     """
@@ -48,7 +66,7 @@ def correct_description(string, root='', isInTable=False):
       - All '\r' characters are replaced with '\n'.
     """
     if string is None:
-        return 'No description provided.'
+        return get_translation('No description provided.')
 
     if False == isInTable:
         # Line breaks
@@ -57,6 +75,7 @@ def correct_description(string, root='', isInTable=False):
         string = re.sub(r'<b>', '-**', string)
     else:
         string = re.sub(r'<b>', '**', string)
+        string = remove_line_breaks(string)
     
     string = re.sub(r'</b>', '**', string)
     
@@ -66,7 +85,7 @@ def correct_description(string, root='', isInTable=False):
     # Process {@link ...} constructions
     string = process_link_tags(string, root)
     
-    return string
+    return get_translation(string)
 
 def process_link_tags(text, root=''):
     """
@@ -166,20 +185,20 @@ def generate_event_markdown(event, enumerations):
     md = f"# {name}\n\n{desc}\n\n"
 
     # Parameters
-    md += "## Parameters\n\n"
+    md += f"## {get_translation("Parameters")}\n\n"
     if params:
-        md += "| **Name** | **Data type** | **Description** |\n"
+        md += f"| **{get_translation("Name")}** | **{get_translation("Data type")}** | **{get_translation("Description")}** |\n"
         md += "| --------- | ------------- | ----------- |\n"
         for p in params:
             t_md = generate_data_types_markdown(
                 p.get('type', {}).get('names', []),
                 enumerations
             )
-            d = remove_line_breaks(correct_description(p.get('description', ''), isInTable=True))
+            d = correct_description(p.get('description', ''), isInTable=True)
             md += f"| {p['name']} | {t_md} | {d} |\n"
         md += "\n"
     else:
-        md += "This event has no parameters.\n\n"
+        md += f"{get_translation("This event has no parameters.")}\n\n"
 
     for ex in event.get('examples', []):
         code = remove_js_comments(ex).strip()
@@ -212,7 +231,7 @@ def generate_enumeration_markdown(enumeration, enumerations):
         # If parsedType is missing, just list 'type.names' if available
         type_names = enumeration['type'].get('names', [])
         if type_names:
-            content += "## Type\n\n"
+            content += f"## {get_translation("Type")}\n\n"
             t_md = generate_data_types_markdown(type_names, enumerations)
             content += t_md + "\n\n"
     else:
@@ -220,8 +239,8 @@ def generate_enumeration_markdown(enumeration, enumerations):
 
         # 1) Handle TypeUnion
         if ptype == 'TypeUnion':
-            content += "## Type\n\nEnumeration\n\n"
-            content += "## Values\n\n"
+            content += f"## {get_translation("Type")}\n\n{get_translation("Enumeration")}\n\n"
+            content += f"## {get_translation("Values")}\n\n"
             for raw_t in enumeration['type']['names']:
                 # Attempt linking
                 if any(enum['name'] == raw_t for enum in enumerations):
@@ -232,11 +251,11 @@ def generate_enumeration_markdown(enumeration, enumerations):
 
         # 2) Handle TypeApplication (e.g. Object.<string, string>)
         elif ptype == 'TypeApplication':
-            content += "## Type\n\nObject\n\n"
+            content += f"## {get_translation("Type")}\n\n{get_translation("Object")}\n\n"
             type_names = enumeration['type'].get('names', [])
             if type_names:
                 t_md = generate_data_types_markdown(type_names, enumerations)
-                content += f"**Type:** {t_md}\n\n"
+                content += f"**{get_translation("Type")}:** {t_md}\n\n"
 
         # 3) If properties are present, treat it like an object
         if enumeration.get('properties') is not None:
@@ -246,16 +265,16 @@ def generate_enumeration_markdown(enumeration, enumerations):
         if ptype not in ('TypeUnion', 'TypeApplication'):
             type_names = enumeration['type'].get('names', [])
             if type_names:
-                content += "## Type\n\n"
+                content += f"## {get_translation("Type")}\n\n"
                 t_md = generate_data_types_markdown(type_names, enumerations)
                 content += t_md + "\n\n"
 
     # Process examples array
     if examples:
         if len(examples) > 1:
-            content += "\n\n## Examples\n\n"
+            content += f"\n\n## {get_translation("Examples")}\n\n"
         else:
-            content += "\n\n## Example\n\n"
+            content += f"\n\n## {get_translation("Example")}\n\n"
 
         for i, ex_line in enumerate(examples, start=1):
             # Remove JS comments
@@ -267,12 +286,12 @@ def generate_enumeration_markdown(enumeration, enumerations):
                 comment = comment.strip()
                 code = code.strip()
                 if len(examples) > 1:
-                    content += f"**Example {i}:**\n\n{comment}\n\n"
+                    content += f"**{get_translation("Example")} {i}:**\n\n{comment}\n\n"
                 
                 content += f"```javascript\n{code}\n```\n"
             else:
                 if len(examples) > 1:
-                    content += f"**Example {i}:**\n\n{comment}\n\n"
+                    content += f"**{get_translation("Example")} {i}:**\n\n{comment}\n\n"
                 # No special fences, just show as code
                 content += f"```javascript\n{cleaned_example}\n```\n"
 
@@ -283,13 +302,13 @@ def generate_events_summary(events):
     Create Events.md summary listing all events with their description.
     """
     header = [
-        "# Events\n\n",
-        "| Event | Description |\n",
+        f"# {get_translation("Events")}\n\n",
+        f"| {get_translation("Event")} | {get_translation("Description")} |\n",
         "| ----- | ----------- |\n"
     ]
     lines = [
         f"| [{ev['name']}](./{ev['name']}.md) | "
-        f"{remove_line_breaks(correct_description(ev.get('description', ''), isInTable=True))} |\n"
+        f"{correct_description(ev.get('description', ''), isInTable=True)} |\n"
         for ev in sorted(events, key=lambda e: e['name'])
     ]
     return "".join(header + lines)
@@ -298,14 +317,14 @@ def generate_properties_markdown(properties, enumerations):
     if properties is None:
         return ''
     
-    content = "## Properties\n\n"
-    content += "| Name | Type | Description |\n"
+    content = f"## {get_translation("Properties")}\n\n"
+    content += f"| {get_translation("Name")} | {get_translation("Type")} | {get_translation("Description")} |\n"
     content += "| ---- | ---- | ----------- |\n"
 
     for prop in sorted(properties, key=lambda m: m['name']):
         prop_name = prop['name']
         prop_description = prop.get('description', 'No description provided.')
-        prop_description = remove_line_breaks(correct_description(prop_description, isInTable=True))
+        prop_description = correct_description(prop_description, isInTable=True)
         prop_types = prop['type']['names'] if prop.get('type') else []
         param_types_md = generate_data_types_markdown(prop_types, enumerations)
         content += f"| {prop_name} | {param_types_md} | {prop_description} |\n"
@@ -374,7 +393,14 @@ def process_events(data, editor_dir):
     # events summary
     write_markdown_file(os.path.join(events_dir, "Events.md"), generate_events_summary(events))
 
-def generate_events(output_dir):
+def generate_events(output_dir, translations_file):
+    global translations
+    
+    if translations_file is not None and os.path.exists(translations_file):
+        translations = load_json(translations_file)
+    else:
+        translations = {}
+
     os.chdir(os.path.dirname(script_path))
     
     if output_dir.endswith('/'):
@@ -387,6 +413,21 @@ def generate_events(output_dir):
         data = load_json(os.path.join(tmp, f"{editor_name}.json"))
         process_events(data, os.path.join(output_dir, folder))
 
+    if translations_file is not None:
+        target_dir = os.path.dirname(translations_file)
+        
+        missed_file_path = os.path.join(target_dir, "missed_translations.json")
+        print(f'Saving missed translations to: {missed_file_path}')
+        with open(missed_file_path, 'w', encoding='utf-8') as f:
+            json.dump(missed_translations, f, ensure_ascii=False, indent=4)
+
+        unused_keys = set(translations.keys()) - set(used_translations_keys.keys())
+        unused_data = {k: translations[k] for k in unused_keys}
+        unused_file_path = os.path.join(target_dir, "unused_translations.json")
+        print(f'Saving unused translations to: {unused_file_path}')
+        with open(unused_file_path, 'w', encoding='utf-8') as f:
+            json.dump(unused_data, f, ensure_ascii=False, indent=4)    
+    
     shutil.rmtree(tmp)
     print("Done. Missing examples:", missing_examples)
 
@@ -399,5 +440,14 @@ if __name__ == "__main__":
         default=f"{root}/api.onlyoffice.com/site/docs/plugin-and-macros/interacting-with-editors/",
         help="Output directory"
     )
+    parser.add_argument(
+        "--translations", 
+        type=str, 
+        help="Path to the JSON file with translations",
+        nargs='?',
+        default=None
+    )
+    
     args = parser.parse_args()
-    generate_events(args.destination)
+
+    generate_events(args.destination, args.translations)

@@ -120,7 +120,8 @@ def make():
     else:
       if config.option("sysroot") != "":
         base.set_sysroot_env("linux_arm64")
-      base.cmd("./Configure", ["linux-aarch64", "enable-md2", "no-shared", "no-asm", "no-tests", "--prefix=" + old_cur_dir + "/build/linux_arm64", "--openssldir=" + old_cur_dir + "/build/linux_arm64"])
+      base.cmd("/usr/bin/perl", ["./Configure", "linux-aarch64", "enable-md2", "no-shared", "no-asm", "no-tests", "--prefix=" + old_cur_dir + "/build/linux_arm64", "--openssldir=" + old_cur_dir + "/build/linux_arm64"])
+      #base.cmd("./Configure", ["linux-aarch64", "enable-md2", "no-shared", "no-asm", "no-tests", "--prefix=" + old_cur_dir + "/build/linux_arm64", "--openssldir=" + old_cur_dir + "/build/linux_arm64"])
       base.replaceInFile("./Makefile", "CFLAGS=-Wall -O3", "CFLAGS=-Wall -O3 -fvisibility=hidden")
       base.replaceInFile("./Makefile", "CXXFLAGS=-Wall -O3", "CXXFLAGS=-Wall -O3 -fvisibility=hidden")
       base.cmd("make", [], True)

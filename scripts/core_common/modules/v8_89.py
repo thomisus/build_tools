@@ -53,6 +53,31 @@ def change_bootstrap():
   base.writeFile("./depot_tools/bootstrap/manifest.txt", content)
   return
 
+def is_ubuntu_24_or_higher():
+  try:
+    with open('/etc/os-release') as f:
+      for line in f:
+        if line.startswith('VERSION_ID='):
+          version = line.split('=')[1].strip().strip('"')
+          return float(version) >= 24
+  except:
+      pass
+  return False
+
+def fix_ubuntu24():
+  #if not is_ubuntu_24_or_higher():
+  #  return
+
+  if "" == config.option("sysroot"):
+    return
+
+  old_cur = os.getcwd()
+  os.chdir("third_party/llvm-build/Release+Asserts/lib")
+  base.cmd("mv", ["libstdc++.so.6", "libstdc++.so.6.old"])
+  base.cmd("ln", ["-s", "/usr/lib/x86_64-linux-gnu/libstdc++.so.6", "libstdc++.so.6"])
+  os.chdir(old_cur)
+  return
+
 def make_args(args, platform, is_64=True, is_debug=False):
   args_copy = args[:]
   if is_64:
@@ -66,7 +91,6 @@ def make_args(args, platform, is_64=True, is_debug=False):
     args_copy = args[:]
     args_copy.append("target_cpu=\\\"arm64\\\"")
     args_copy.append("v8_target_cpu=\\\"arm64\\\"")
-    args_copy.append("use_sysroot=true")
     
   if (platform == "win_arm64"):
     args_copy = args[:]
@@ -84,8 +108,26 @@ def make_args(args, platform, is_64=True, is_debug=False):
   linux_clang = False
   if platform == "linux":
     if "" != config.option("sysroot"):
-      args_copy.append("use_sysroot=false")
+      args_copy.append("use_sysroot=true")
       args_copy.append("is_clang=false")
+      if is_ubuntu_24_or_higher():
+        args_copy.append("use_gold=false")
+      args_copy.append("sysroot=\\\"" + config.option("sysroot_linux_64") + "\\\"")
+      args_copy.append("target_sysroot=\\\"" + config.option("sysroot_linux_64") + "\\\"")
+    else:
+      args_copy.append("is_clang=true")
+      if "1" == config.option("use-clang"):
+        linux_clang = True
+      else:
+        args_copy.append("use_sysroot=false")
+
+  if platform == "linux_arm64":
+    if "" != config.option("sysroot"):
+      args_copy.append("use_sysroot=true")
+      if is_ubuntu_24_or_higher():
+        args_copy.append("use_gold=false")
+      #args_copy.append("sysroot=\\\"" + config.option("sysroot_linux_64") + "\\\"")
+      args_copy.append("target_sysroot=\\\"" + config.option("sysroot_linux_arm64") + "\\\"")
     else:
       args_copy.append("is_clang=true")
       if "1" == config.option("use-clang"):
@@ -197,6 +239,9 @@ def make():
     base.cmd("./depot_tools/gclient", ["sync", "-r", v8_branch_version], True)
     base.cmd("gclient", ["sync", "--force"], True)
     base.copy_dir("./v8/third_party_new/ninja", "./v8/third_party/ninja")
+    if ("linux" == base.host_platform()):
+      if not base.is_file("./depot_tools/python3_bin_reldir.txt"):
+        base.cmd_in_dir("./depot_tools", "./ensure_bootstrap", [], True)
 
   if ("windows" == base.host_platform()):
     base.replaceInFile("v8/build/config/win/BUILD.gn", ":static_crt", ":dynamic_crt")
@@ -226,6 +271,9 @@ def make():
     base.replaceInFile("v8/third_party/jinja2/tests.py", "from collections import Mapping", "try:\n    from collections.abc import Mapping\nexcept ImportError:\n    from collections import Mapping")
 
   os.chdir("v8")
+
+  is_ubuntu24 = is_ubuntu_24_or_higher()
+  fix_ubuntu24()
   
   gn_args = ["v8_static_library=true",
              "is_component_build=false",
@@ -237,17 +285,15 @@ def make():
     if config.option("sysroot") != "":
       sysroot_path = config.option("sysroot_linux_64")
       sysroot_path_bin = config.get_custom_sysroot_bin("linux_64")
-      src_replace = "config(\"compiler\") {\n  asmflags = []\n  cflags = []\n  cflags_c = []\n  cflags_cc = []\n  cflags_objc = []\n  cflags_objcc = []\n  ldflags = []"
-      dst_replace = "config(\"compiler\") {\n  asmflags = []\n  cflags = [\"--sysroot=" + sysroot_path + "\"]" + "\n  cflags_c = []\n  cflags_cc = [\"--sysroot=" + sysroot_path + "\"]" + "\n  cflags_objc = []\n  cflags_objcc = []\n  ldflags = [\"--sysroot=" + sysroot_path + "\"]"
-      base.replaceInFile("build/config/compiler/BUILD.gn", src_replace, dst_replace)
 
-      src_replace = "gcc_toolchain(\"x64\") {\n  cc = \"gcc\"\n  cxx = \"g++\""
-      dst_replace = "gcc_toolchain(\"x64\") {\n  cc = \""+ sysroot_path_bin + "/gcc\"\n  cxx = \"" + sysroot_path_bin + "/g++\""
-      base.replaceInFile("build/toolchain/linux/BUILD.gn", src_replace, dst_replace)
-      
       old_env = dict(os.environ)
       base.set_sysroot_env("linux_64")
+
+      pkg_old = os.environ.get("PKG_CONFIG_PATH", "")
+      os.environ["PKG_CONFIG_PATH"] = sysroot_path + "/usr/lib/x86_64-linux-gnu/pkgconfig:" + sysroot_path + "/usr/lib/pkgconfig:" + sysroot_path + "/usr/share/pkgconfig"
       base.cmd2("gn", ["gen", "out.gn/linux_64", make_args(gn_args, "linux")], False)
+      os.environ["PKG_CONFIG_PATH"] = pkg_old
+
       base.cmd2("ninja", ["-C", "out.gn/linux_64"], False)
       base.restore_sysroot_env()
     else:
@@ -261,7 +307,13 @@ def make():
 
   if config.check_option("platform", "linux_arm64"):
     base.cmd("build/linux/sysroot_scripts/install-sysroot.py", ["--arch=arm64"], False)
+    
+    sysroot_path = config.option("sysroot_linux_64")
+    pkg_old = os.environ.get("PKG_CONFIG_PATH", "")
+    os.environ["PKG_CONFIG_PATH"] = sysroot_path + "/usr/lib/x86_64-linux-gnu/pkgconfig:" + sysroot_path + "/usr/lib/pkgconfig:" + sysroot_path + "/usr/share/pkgconfig"
     base.cmd2("gn", ["gen", "out.gn/linux_arm64", make_args(gn_args, "linux_arm64", False)])
+    os.environ["PKG_CONFIG_PATH"] = pkg_old
+
     base.cmd("ninja", ["-C", "out.gn/linux_arm64"])
 
   if config.check_option("platform", "mac_64"):

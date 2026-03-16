@@ -72,6 +72,8 @@ def make():
     base.copy_lib(build_libraries_path, root_dir + "/converter", "IWorkFile")
     base.copy_lib(build_libraries_path, root_dir + "/converter", "HWPFile")
     base.copy_lib(build_libraries_path, root_dir + "/converter", "DocxRenderer")
+    base.copy_lib(build_libraries_path, root_dir + "/converter", "StarMathConverter")
+    base.copy_lib(build_libraries_path, root_dir + "/converter", "ooxmlsignature", "xp" if isWindowsXP else "")
 
     if ("ios" == platform):
       base.copy_lib(build_libraries_path, root_dir + "/converter", "x2t")
@@ -137,7 +139,6 @@ def make():
 
     # libraries
     base.copy_lib(build_libraries_path, root_dir, "hunspell")
-    base.copy_lib(build_libraries_path + ("/xp" if isWindowsXP else ""), root_dir, "ooxmlsignature")
     base.copy_lib(build_libraries_path + ("/xp" if isWindowsXP else ""), root_dir, "ascdocumentscore")
     if (0 != platform.find("mac")):
       base.copy_lib(build_libraries_path + ("/xp" if isWindowsXP else ""), root_dir, "qtascdocumentscore")
@@ -186,8 +187,6 @@ def make():
         base.copy_file(git_dir + "/desktop-apps/win-linux/extras/projicons/" + apps_postfix + "/projicons.exe", root_dir + "/DesktopEditors.exe")
         if not isWindowsXP:
           base.copy_file(git_dir + "/desktop-apps/win-linux/extras/update-daemon/" + apps_postfix + "/updatesvc.exe", root_dir + "/updatesvc.exe")
-        else:
-          base.copy_file(git_dir + "/desktop-apps/win-linux/extras/online-installer/" + apps_postfix + "/online-installer.exe", root_dir + "/online-installer.exe")
         base.copy_file(git_dir + "/desktop-apps/win-linux/" + apps_postfix + "/DesktopEditors.exe", root_dir + "/editors.exe")
         base.copy_file(git_dir + "/desktop-apps/win-linux/res/icons/desktopeditors.ico", root_dir + "/app.ico")
       elif (0 == platform.find("linux")):
@@ -347,4 +346,3 @@ def make():
       base.delete_file(root_dir + "/editors/sdkjs/slide/sdk-all.cache")
 
   return
-

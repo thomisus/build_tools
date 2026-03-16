@@ -146,8 +146,10 @@ def fix_absolute_symlinks(sysroot_path, arch):
   
   if arch == "arm64":
     lib_dir = os.path.join(sysroot_path, "usr/lib/aarch64-linux-gnu")
+    target_lib_dir = "aarch64-linux-gnu"
   elif arch == "amd64":
     lib_dir = os.path.join(sysroot_path, "usr/lib/x86_64-linux-gnu")
+    target_lib_dir = "x86_64-linux-gnu"
   else:
     return
   
@@ -182,6 +184,14 @@ def fix_absolute_symlinks(sysroot_path, arch):
       
       print(f"  Fixed: {filename} -> {relative_target}")
       fixed_count += 1
+      
+  libgcc_usr_symlink = os.path.join(lib_dir, "libgcc_s.so")
+  libgcc_target = os.path.join(sysroot_path, "lib", target_lib_dir, "libgcc_s.so.1")
+  
+  if os.path.exists(libgcc_target) and not os.path.exists(libgcc_usr_symlink):
+    absolute_libgcc = os.path.abspath(libgcc_target)
+    os.symlink(absolute_libgcc, libgcc_usr_symlink)
+    fixed_count += 1
   
   print(f"Fixed {fixed_count} absolute symlinks")
 

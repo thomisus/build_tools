@@ -36,7 +36,7 @@ def make(platform, project, qmake_config_addon="", is_no_errors=False):
     return
 
   old_env = dict(os.environ)
-  
+
   # qt
   qt_dir = base.qt_setup(platform)
   base.set_env("OS_DEPLOY", platform)
@@ -50,7 +50,7 @@ def make(platform, project, qmake_config_addon="", is_no_errors=False):
   if (pro_dir.endswith("/")):
     pro_dir = pro_dir[:-1]
 
-  makefile_name = "Makefile." + get_make_file_suffix(platform) 
+  makefile_name = "Makefile." + get_make_file_suffix(platform)
   makefile = pro_dir + "/" + makefile_name
   stash_file = pro_dir + "/.qmake.stash"
 
@@ -73,6 +73,11 @@ def make(platform, project, qmake_config_addon="", is_no_errors=False):
   # setup ios env
   if (-1 != platform.find("ios")):
     base.hack_xcode_ios()
+    sdk_name = "iphoneos"
+    if qmake_config_addon.find("ios_simulator") != -1:
+      sdk_name = "iphonesimulator"
+    base.set_env("SDK_PATH", base.find_ios_sdk(sdk_name))
+    base.set_env("XCODE_TOOLCHAIN_PATH", base.find_xcode_toolchain(sdk_name))
 
   if base.is_file(makefile):
     base.delete_file(makefile)
@@ -100,16 +105,16 @@ def make(platform, project, qmake_config_addon="", is_no_errors=False):
     if "1" == config.option("use-clang"):
       build_params.append("-spec")
       build_params.append("linux-clang-libc++")
-      
+
     if "" != config.option("sysroot"):
       sysroot_path = config.option("sysroot_" + platform)
       os.environ['QMAKE_CUSTOM_SYSROOT'] = sysroot_path
       os.environ['QMAKE_CUSTOM_SYSROOT_BIN'] = config.get_custom_sysroot_bin(platform)
       os.environ['PKG_CONFIG_PATH'] = config.get_custom_sysroot_lib(platform, True) + "/pkgconfig"
       os.environ['PKG_CONFIG_SYSROOT_DIR'] = sysroot_path
-      
+
     base.cmd_exe(qmake_app, build_params)
-    
+
     if "" != config.option("sysroot"):
       base.set_sysroot_env(platform)
 
@@ -117,7 +122,13 @@ def make(platform, project, qmake_config_addon="", is_no_errors=False):
     if ("1" == config.option("clean")):
       base.cmd_and_return_cwd("make", clean_params, True)
       base.cmd_and_return_cwd("make", distclean_params, True)
-      base.cmd(qmake_app, build_params)
+      
+      if "" != config.option("sysroot"):
+        base.restore_sysroot_env()
+      base.cmd(qmake_app, build_params)   
+      if "" != config.option("sysroot"):
+        base.set_sysroot_env(platform)
+      
       base.correct_makefile_after_qmake(platform, makefile)
     base.cmd_and_return_cwd("make", ["-f", makefile] + get_j_num(), is_no_errors)
 

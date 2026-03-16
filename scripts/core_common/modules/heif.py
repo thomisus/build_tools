@@ -72,7 +72,10 @@ def build_with_cmake(platform, cmake_args, build_type):
       cmake_args_ext += ["-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0", "-DCMAKE_OSX_ARCHITECTURES=arm64"]
     elif config.option("sysroot") != "":
       # force use custom CXXFLAGS with Release/Debug build
-      cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + LINUX_CUSTOM_SYSROOT_TOOLCHAIN_FILE]
+      if (platform == "linux_64"):
+        cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + LINUX_CUSTOM_SYSROOT_TOOLCHAIN_FILE]
+      else:
+        cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + LINUX_SYSTEM_AARCH64_TOOLCHAIN_FILE]
     elif platform == "linux_arm64" and not base.is_os_arm():
       cmake_args += ["-DCMAKE_TOOLCHAIN_FILE=" + LINUX_SYSTEM_AARCH64_TOOLCHAIN_FILE]
   # IOS
@@ -109,7 +112,7 @@ def build_with_cmake(platform, cmake_args, build_type):
 
   # env setup for custom sysroot
   if config.option("sysroot") != "":
-    base.set_sysroot_env("linux_arm64")
+    base.set_sysroot_env(platform)
 
   # run cmake
   base.cmd("cmake", cmake_args + cmake_args_ext)

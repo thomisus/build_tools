@@ -36,7 +36,7 @@ def s3_upload(files, dst):
 
 def make_windows():
   global package_name, package_version, arch, xp
-  utils.set_cwd("desktop-apps\\win-linux\\package\\windows")
+  utils.set_cwd("desktop-apps\\package")
 
   package_name = branding.desktop_package_name
   package_version = common.version + "." + common.build
@@ -51,13 +51,14 @@ def make_windows():
 
   if common.clean:
     utils.log_h2("desktop clean")
-    utils.delete_dir("DesktopEditors-cache")
-    utils.delete_files("*.exe")
-    utils.delete_files("*.msi")
-    utils.delete_files("*.aic")
-    utils.delete_files("*.tmp")
-    utils.delete_files("*.zip")
-    utils.delete_files("data\\*.exe")
+    utils.delete_dir("build")
+    utils.delete_files("inno\\package.config")
+    utils.delete_files("inno\\*.exe")
+    utils.delete_dir("advinst\\DesktopEditors-cache")
+    utils.delete_files("advinst\\package.config")
+    utils.delete_files("advinst\\*.msi")
+    utils.delete_files("advinst\\*.aic")
+    utils.delete_dir("zip")
 
   if not xp:
     make_prepare()
@@ -65,8 +66,6 @@ def make_windows():
     if branding.onlyoffice:
       make_inno()
       make_inno("standalone")
-      if arch != "arm64":
-        make_inno("update")
       make_advinst()
 
       make_prepare("commercial")
@@ -77,9 +76,6 @@ def make_windows():
     make_prepare("xp")
     make_zip("xp")
     make_inno("xp")
-  # Disable build online installer
-  # if common.platform == "windows_x86_xp":
-  #  make_online()
 
   utils.set_cwd(common.workspace_dir)
   return
@@ -103,7 +99,7 @@ def make_zip(edition = "opensource"):
   if   edition == "commercial": zip_file = "%s-Enterprise-%s-%s.zip"
   elif edition == "xp":         zip_file = "%s-XP-%s-%s.zip"
   else:                         zip_file = "%s-%s-%s.zip"
-  zip_file = zip_file % (package_name, package_version, arch)
+  zip_file = "zip\\" + zip_file % (package_name, package_version, arch)
   args = [
     "-Version", package_version,
     "-Arch", arch,
@@ -129,7 +125,7 @@ def make_inno(edition = "opensource"):
   elif edition == "update":     inno_file = "%s-Update-%s-%s.exe"
   elif edition == "xp":         inno_file = "%s-XP-%s-%s.exe"
   else:                         inno_file = "%s-%s-%s.exe"
-  inno_file = inno_file % (package_name, package_version, arch)
+  inno_file = "inno\\" + inno_file % (package_name, package_version, arch)
   args = [
     "-Version", package_version,
     "-Arch", arch,
@@ -154,7 +150,7 @@ def make_inno(edition = "opensource"):
 def make_advinst(edition = "opensource"):
   if edition == "commercial": advinst_file = "%s-Enterprise-%s-%s.msi"
   else:                       advinst_file = "%s-%s-%s.msi"
-  advinst_file = advinst_file % (package_name, package_version, arch)
+  advinst_file = "advinst\\" + advinst_file % (package_name, package_version, arch)
   args = [
     "-Version", package_version,
     "-Arch", arch,
@@ -171,18 +167,6 @@ def make_advinst(edition = "opensource"):
     utils.log_h2("desktop advinst " + edition + " deploy")
     ret = s3_upload([advinst_file], "desktop/win/advinst/")
     utils.set_summary("desktop advinst " + edition + " deploy", ret)
-  return
-
-def make_online():
-  online_file = utils.glob_file("OnlineInstaller-" + package_version + "*.exe")
-  utils.log_h2("desktop online installer build")
-  ret = utils.is_file(online_file)
-  utils.set_summary("desktop online installer build", ret)
-
-  if common.deploy and ret:
-    utils.log_h2("desktop online installer deploy")
-    ret = s3_upload([online_file], "desktop/win/online/")
-    utils.set_summary("desktop online installer deploy", ret)
   return
 
 #
@@ -331,7 +315,7 @@ def make_sparkle_updates():
 #
 
 def make_linux():
-  utils.set_cwd("desktop-apps/win-linux/package/linux")
+  utils.set_cwd("desktop-apps/package")
 
   for edition in ["opensource", "commercial"]:
     utils.log_h2("desktop " + edition + " build")
@@ -341,7 +325,7 @@ def make_linux():
     if common.platform == "linux_aarch64":
       make_args += ["-e", "UNAME_M=aarch64"]
     if not branding.onlyoffice:
-      make_args += ["-e", "BRANDING_DIR=../../../../" + common.branding + "/desktop-apps/win-linux/package/linux"]
+      make_args += ["-e", "BRANDING_DIR=../../" + common.branding + "/desktop-apps/package"]
     ret = utils.sh("make clean && make " + " ".join(make_args), verbose=True)
     utils.set_summary("desktop " + edition + " build", ret)
 
