@@ -5,6 +5,7 @@ import shutil
 import argparse
 import generate_docs_methods_json
 import json
+from pathlib import PurePosixPath
 
 # Configuration files
 editors = {
@@ -21,10 +22,34 @@ root = os.path.abspath(os.path.join(os.path.dirname(script_path), '../../../../.
 missing_examples = []
 used_enumerations = set()
 translations = {}
+translations_lang = None
 missed_translations = {}
 used_translations_keys = {}
-
+global_output_dir = ""
 cur_editor_name = None
+
+def find_common_path_part(path_full: str, path_suffix: str, anchor: str) -> str:
+    path_full = path_full.replace('\\', '/')
+    path_suffix = path_suffix.replace('\\', '/')
+    
+    parts1 = PurePosixPath(path_full).parts
+    parts2 = PurePosixPath(path_suffix).parts
+    
+    try:
+        idx1 = [p.lower() for p in parts1].index(anchor.lower())
+        idx2 = [p.lower() for p in parts2].index(anchor.lower())
+    except ValueError:
+        return ""
+        
+    common_segments = []
+    
+    for p1, p2 in zip(parts1[idx1:], parts2[idx2:]):
+        if p1.lower() == p2.lower(): 
+            common_segments.append(p1)
+        else:
+            break
+            
+    return "/".join(common_segments)
 
 def load_json(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -61,36 +86,28 @@ def process_link_tags(text, root=''):
     otherwise, a link to a class method is created.
     For a method, if an alias is not specified, the name is left in the format 'Class#Method'.
     """
-    reserved_links = {
-        '/docbuilder/global#ShapeType': f"{'../../../../../' if root == '' else '../../../../' if root == '../' else root}docs/office-api/usage-api/text-document-api/Enumeration/ShapeType.md",
-        '/plugin/config': 'https://api.onlyoffice.com/docs/plugin-and-macros/structure/configuration/',
-        '/docbuilder/basic': 'https://api.onlyoffice.com/docs/office-api/usage-api/text-document-api/'
-    }
-
+    
     def replace_link(match):
-        content = match.group(1).strip()  # Example: "/docbuilder/global#ShapeType shape type" or "global#ErrorValue ErrorValue"
+        content = match.group(1).strip()  # Example: "global#ShapeType shape type" or "global#ErrorValue ErrorValue
         parts = content.split()
         ref = parts[0]
         label = parts[1] if len(parts) > 1 else None
 
-        if ref.startswith('/'):
-            # Handle reserved links using mapping
-            if ref in reserved_links:
-                url = reserved_links[ref]
-                display_text = label if label else ref
-                return f"[{display_text}]({url})"
-            else:
-                # If the link is not in the mapping, return the original construction
-                return match.group(0)
+        if ref.startswith('/docs/'):
+            url = root + '../../../..' + ref
+            display_text = label if label else ref
+            
+            if url.endswith('/'):
+                last_dir = url.rstrip('/').split('/')[-1]
+                url = f"{url}{last_dir}"
+        
+            return f"[{display_text}]({url}.md)"
         elif ref.startswith("global#"):
             # Handle links to typedef (similar logic as before)
             typedef_name = ref.split("#")[1]
             used_enumerations.add(typedef_name)
             display_text = label if label else typedef_name
             return f"[{display_text}]({root}Enumeration/{typedef_name}.md)"
-        elif ref.startswith("https"):
-            display_text = label if label else ref  # Keep the full notation, e.g., "Api#CreateSlide"
-            return f"[{display_text}]({ref})"
         else:
             # Handle links to class methods like ClassName#MethodName
             try:
@@ -422,7 +439,7 @@ def generate_method_markdown(method, enumerations, classes):
             # Attempt splitting if the user used ```js
             if '```js' in cleaned_example:
                 comment, code = cleaned_example.split('```js', 1)
-                comment = comment.strip()
+                comment = get_translation(comment.strip())
                 code = code.strip()
                 if len(examples) > 1:
                     content += f"**{get_translation("Example")} {i}:**\n\n{comment}\n\n"
@@ -447,7 +464,7 @@ def generate_properties_markdown(properties, enumerations, classes, root='../'):
     for prop in sorted(properties, key=lambda m: m['name']):
         prop_name = prop['name']
         prop_description = prop.get('description', 'No description provided.')
-        prop_description = correct_description(prop_description, isInTable=True)
+        prop_description = correct_description(prop_description, root, isInTable=True)
         prop_types = prop['type']['names'] if prop.get('type') else []
         param_types_md = generate_data_types_markdown(prop_types, enumerations, classes, root)
         content += f"| {prop_name} | {param_types_md} | {prop_description} |\n"
@@ -533,7 +550,7 @@ def generate_enumeration_markdown(enumeration, enumerations, classes):
             # Attempt splitting if the user used ```js
             if '```js' in cleaned_example:
                 comment, code = cleaned_example.split('```js', 1)
-                comment = comment.strip()
+                comment = get_translation(comment.strip())
                 code = code.strip()
                 if len(examples) > 1:
                     content += f"**{get_translation("Example")} {i}:**\n\n{comment}\n\n"
@@ -639,9 +656,13 @@ def process_doclets(data, output_dir, editor_name):
 
 def generate(output_dir, translations_file):
     global translations
+    global translations_lang
+    global global_output_dir
+    global_output_dir = output_dir
     
     if translations_file is not None and os.path.exists(translations_file):
         translations = load_json(translations_file)
+        translations_lang = os.path.splitext(os.path.basename(translations_file))[0]
     else:
         translations = {}
         

@@ -6,6 +6,7 @@ import shutil
 import argparse
 import generate_docs_events_json
 import json
+from pathlib import PurePosixPath
 
 # Папки для каждого editor_name
 editors = {
@@ -22,8 +23,33 @@ root = os.path.abspath(os.path.join(os.path.dirname(script_path), '../../../../.
 missing_examples = []
 used_enumerations = set()
 translations = {}
+translations_lang = None
 missed_translations = {}
 used_translations_keys = {}
+global_output_dir = ""
+
+def find_common_path_part(path_full: str, path_suffix: str, anchor: str) -> str:
+    path_full = path_full.replace('\\', '/')
+    path_suffix = path_suffix.replace('\\', '/')
+    
+    parts1 = PurePosixPath(path_full).parts
+    parts2 = PurePosixPath(path_suffix).parts
+    
+    try:
+        idx1 = [p.lower() for p in parts1].index(anchor.lower())
+        idx2 = [p.lower() for p in parts2].index(anchor.lower())
+    except ValueError:
+        return ""
+        
+    common_segments = []
+    
+    for p1, p2 in zip(parts1[idx1:], parts2[idx2:]):
+        if p1.lower() == p2.lower(): 
+            common_segments.append(p1)
+        else:
+            break
+            
+    return "/".join(common_segments)
 
 def load_json(path):
     with open(path, 'r', encoding='utf-8') as f:
@@ -94,31 +120,22 @@ def process_link_tags(text, root=''):
     otherwise, a link to a class method is created.
     For a method, if an alias is not specified, the name is left in the format 'Class#Method'.
     """
-    reserved_links = {
-        '/docbuilder/global#ShapeType': f"{'../../../../../../' if root == '' else '../../../../../' if root == '../' else root}docs/office-api/usage-api/text-document-api/Enumeration/ShapeType.md",
-        '/plugin/config': 'https://api.onlyoffice.com/docs/plugin-and-macros/structure/configuration/',
-        '/docbuilder/basic': 'https://api.onlyoffice.com/docs/office-api/usage-api/text-document-api/'
-    }
-
+    
     def replace_link(match):
-        content = match.group(1).strip()  # Example: "/docbuilder/global#ShapeType shape type" or "global#ErrorValue ErrorValue"
+        content = match.group(1).strip()  # Example: "global#ShapeType shape type" or "global#ErrorValue ErrorValue
         parts = content.split()
         ref = parts[0]
         label = parts[1] if len(parts) > 1 else None
 
-        if ref.startswith('/'):
-            # Handle reserved links using mapping
-            if ref in reserved_links:
-                url = reserved_links[ref]
-                display_text = label if label else ref
-                return f"[{display_text}]({url})"
-            elif ref.startswith('/docs/plugins/'):
-                url = f"../../{ref.split('/docs/plugins/')[1]}.md"
-                display_text = label if label else ref
-                return f"[{display_text}]({url})"
-            else:
-                # If the link is not in the mapping, return the original construction
-                return match.group(0)
+        if ref.startswith('/docs/'):
+            url = root + '../../../..' + ref
+            display_text = label if label else ref
+            
+            if url.endswith('/'):
+                last_dir = url.rstrip('/').split('/')[-1]
+                url = f"{url}{last_dir}"
+        
+            return f"[{display_text}]({url}.md)"
         elif ref.startswith("global#"):
             # Handle links to typedef (similar logic as before)
             typedef_name = ref.split("#")[1]
@@ -179,7 +196,7 @@ def escape_text_outside_code_blocks(md):
 
 def generate_event_markdown(event, enumerations):
     name = event['name']
-    desc = correct_description(event.get('description', ''))
+    desc = correct_description(event.get('description', ''), '../', True)
     params = event.get('params', [])
 
     md = f"# {name}\n\n{desc}\n\n"
@@ -283,7 +300,7 @@ def generate_enumeration_markdown(enumeration, enumerations):
             # Attempt splitting if the user used ```js
             if '```js' in cleaned_example:
                 comment, code = cleaned_example.split('```js', 1)
-                comment = comment.strip()
+                comment = get_translation(comment.strip())
                 code = code.strip()
                 if len(examples) > 1:
                     content += f"**{get_translation("Example")} {i}:**\n\n{comment}\n\n"
@@ -308,7 +325,7 @@ def generate_events_summary(events):
     ]
     lines = [
         f"| [{ev['name']}](./{ev['name']}.md) | "
-        f"{correct_description(ev.get('description', ''), isInTable=True)} |\n"
+        f"{correct_description(ev.get('description', ''), '../', isInTable=True)} |\n"
         for ev in sorted(events, key=lambda e: e['name'])
     ]
     return "".join(header + lines)
@@ -395,9 +412,13 @@ def process_events(data, editor_dir):
 
 def generate_events(output_dir, translations_file):
     global translations
-    
+    global translations_lang
+    global global_output_dir
+    global_output_dir = output_dir
+
     if translations_file is not None and os.path.exists(translations_file):
         translations = load_json(translations_file)
+        translations_lang = os.path.splitext(os.path.basename(translations_file))[0]
     else:
         translations = {}
 
