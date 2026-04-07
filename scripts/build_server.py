@@ -19,7 +19,28 @@ def make():
 
   build_server_with_addons()
 
-    #env variables
+  # sharp arm64: npm ci on x86_64 host may install the host prebuilt binary
+  # (sharp-linux-x64.node); fetch the linux-arm64 glibc binary before pkg packaging.
+  if ("linux" == base.host_platform() and -1 != config.option("platform").find("linux_arm64")):
+    sharp_dir = server_dir + "/DocService/node_modules/sharp"
+    if base.is_exist(sharp_dir):
+      try:
+        base.print_info("sharp: installing linux-arm64 glibc native binary")
+        base.cmd_in_dir(sharp_dir, "npm", [
+          "exec", "--",
+          "prebuild-install",
+          "--platform", "linux",
+          "--arch", "arm64",
+          "--libc", "glibc"
+        ])
+      except Exception as e:
+        base.print_info("sharp arm64 install failed (non-fatal): " + str(e))
+      if base.is_exist(sharp_dir + "/build/Release/sharp-linux-arm64v8.node"):
+        base.print_info("sharp: linux-arm64 binary OK")
+      else:
+        base.print_info("sharp: WARNING - sharp-linux-arm64v8.node not found, image processing may be limited on arm64")
+
+  #env variables
   product_version = base.get_env('PRODUCT_VERSION')
   if(not product_version):
     product_version = "0.0.0"
