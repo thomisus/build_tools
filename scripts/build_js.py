@@ -119,6 +119,9 @@ def _run_npm_cli(directory):
 def _run_grunt(directory, params=[]):
   return base.cmd_in_dir(directory, "grunt", params)
 
+def _run_build_py(directory, params=[]):
+  return base.cmd_in_dir(directory, "python", ["build.py"] + params)
+
 def build_interface(directory):
   _run_npm(directory)
   _run_grunt(directory, ["--force", "--verbose"] + base.web_apps_addons_param())
@@ -133,24 +136,21 @@ def get_build_param(minimize=True):
   return params + (["--level=ADVANCED"] if minimize_scripts else ["--level=WHITESPACE_ONLY", "--formatting=PRETTY_PRINT"])
 
 def build_sdk_desktop(directory):
-  #_run_npm_cli(directory)
-  _run_npm(directory)  
-  _run_grunt(directory, get_build_param() + ["--desktop=true"] + base.sdkjs_addons_param() + base.sdkjs_addons_desktop_param())
+  _run_npm(directory)
+  _run_build_py(directory, get_build_param() + ["--desktop"] + base.sdkjs_addons_param() + base.sdkjs_addons_desktop_param())
   return
 
 def build_sdk_builder(directory):
-  #_run_npm_cli(directory)
   _run_npm(directory)
-  _run_grunt(directory, get_build_param() + base.sdkjs_addons_param() + ["--map"])
+  _run_build_py(directory, get_build_param() + base.sdkjs_addons_param() + ["--map"])
   return
 
 def build_sdk_native(directory, minimize=True):
-  #_run_npm_cli(directory)
   _run_npm(directory)
   addons = base.sdkjs_addons_param()
   if not config.check_option("sdkjs-addons", "sdkjs-native"):
     addons.append("--addon=sdkjs-native")
-  _run_grunt(directory, get_build_param(minimize) + ["--mobile=true"] + addons)
+  _run_build_py(directory, get_build_param(minimize) + ["--mobile"] + addons)
   return
 
 
@@ -159,9 +159,10 @@ def build_sdkjs_develop(root_dir):
   if (external_folder != ""):
     external_folder = "/" + external_folder
 
-  _run_npm_ci(root_dir + external_folder + "/sdkjs/build")
-  _run_grunt(root_dir + external_folder + "/sdkjs/build", get_build_param(False) + base.sdkjs_addons_param())
-  _run_grunt(root_dir + external_folder + "/sdkjs/build", ["develop"] + base.sdkjs_addons_param())
+  build_dir = root_dir + external_folder + "/sdkjs/build"
+  _run_npm_ci(build_dir)
+  _run_build_py(build_dir, get_build_param(False) + base.sdkjs_addons_param())
+  _run_build_py(build_dir, ["--develop"] + base.sdkjs_addons_param())
 
 
 def build_js_develop(root_dir):
