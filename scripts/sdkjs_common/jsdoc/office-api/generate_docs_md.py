@@ -345,9 +345,21 @@ def generate_data_types_markdown(types, enumerations, classes, root='../../'):
     return param_types_md
 
 
-def generate_class_markdown(class_name, methods, properties, enumerations, classes):
-    content = f"# {class_name}\n\n{get_translation(f"Represents the {class_name} class.")}\n\n"
-    
+def generate_class_markdown(class_name, methods, properties, enumerations, classes, augments=None):
+    if augments:
+        extends_links = []
+        for parent in augments:
+            if parent in classes:
+                extends_links.append(f"[{parent}](../{parent}/{parent}.md)")
+            elif cur_editor_name == "forms":
+                extends_links.append(f"[{parent}](../../text-document-api/{parent}/{parent}.md)")
+            else:
+                extends_links.append(parent)
+        description = get_translation(f"{class_name} is a subclass of {', '.join(extends_links)}.")
+    else:
+        description = get_translation(f"Represents the {class_name} class.")
+
+    content = f"# {class_name}\n\n{description}\n\n"
     content += generate_properties_markdown(properties, enumerations, classes)
 
     content += f"\n## {get_translation(f"Methods")}\n\n"
@@ -516,6 +528,7 @@ def process_doclets(data, output_dir, editor_name):
 
     classes = {}
     classes_props = {}
+    classes_augments = {}
     enumerations = []
     editor_dir = os.path.join(output_dir, editors[editor_name])
     example_editor_name = 'editor-'
@@ -538,6 +551,7 @@ def process_doclets(data, output_dir, editor_name):
                 if class_name not in classes:
                     classes[class_name] = []
                 classes_props[class_name] = doclet.get('properties', None)
+                classes_augments[class_name] = doclet.get('augments', None)
         elif doclet['kind'] == 'function':
             class_name = doclet.get('memberof')
             if class_name:
@@ -558,11 +572,12 @@ def process_doclets(data, output_dir, editor_name):
 
         # Write class file
         class_content = generate_class_markdown(
-            class_name, 
-            methods, 
-            classes_props[class_name], 
-            enumerations, 
-            classes
+            class_name,
+            methods,
+            classes_props[class_name],
+            enumerations,
+            classes,
+            classes_augments.get(class_name)
         )
         write_markdown_file(os.path.join(class_dir, f"{class_name}.md"), class_content)
 
