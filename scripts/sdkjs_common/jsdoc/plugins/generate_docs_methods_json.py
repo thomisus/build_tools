@@ -3,16 +3,24 @@ import subprocess
 import json
 import argparse
 import re
+import platform
 
 # Configuration files
 configs = [
-    "./config/methods/common.json",
     "./config/methods/word.json",
     "./config/methods/cell.json",
     "./config/methods/slide.json",
     "./config/methods/forms.json",
     "./config/methods/pdf.json"
 ]
+
+editors_maps = {
+    "word":     "CDE",
+    "cell":     "CSE",
+    "slide":    "CPE",
+    "forms":    "CFE",
+    "pdf":		"PDFE"
+}
 
 script_path = os.path.abspath(__file__)
 root = os.path.abspath(os.path.join(os.path.dirname(script_path), '../../../../..'))
@@ -27,20 +35,15 @@ def generate(output_dir, md=False):
     for config in configs:
         editor_name = config.split('/')[-1].replace('.json', '')
         output_file = os.path.join(output_dir, editor_name + ".json")
-        command = f"npx jsdoc -c {config} -X > {output_file}"
+        command_set_env = "export"
+        if (platform.system().lower() == "windows"):
+            command_set_env = "set"
+        command = f"{command_set_env} EDITOR={editors_maps[editor_name]} && npx jsdoc -c {config} -X > {output_file}"
         print(f"Generating {editor_name}.json: {command}")
         subprocess.run(command, shell=True)
 
-    common_doclets_file = os.path.join(output_dir, 'common.json')
-    with open(common_doclets_file, 'r', encoding='utf-8') as f:
-        common_doclets_json = json.dumps(json.load(f))
-    os.remove(common_doclets_file)
-    
     # Append examples to JSON documentation
     for config in configs:
-        if (config.find('common') != -1):
-            continue
-        
         editor_name = config.split('/')[-1].replace('.json', '')
         example_folder_name = editor_name # name of folder with examples
         output_file = os.path.join(output_dir, editor_name + ".json")
@@ -49,13 +52,10 @@ def generate(output_dir, md=False):
         with open(output_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
             start_common_doclet_idx = len(data)
-            data += json.loads(common_doclets_json)
         
         # Modify JSON data
         for idx, doclet in enumerate(data):
-            if idx >= start_common_doclet_idx:
-                example_folder_name = 'common'
-            elif editor_name == 'forms':
+            if editor_name == 'forms':
                 example_folder_name = 'word'
 
             if 'see' in doclet:

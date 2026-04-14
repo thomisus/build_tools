@@ -1,6 +1,6 @@
 {
   "source": {
-    "include": ["../../../../../sdkjs/cell/plugin-events.js"]
+    "include": ["../../../../../sdkjs/common/base-plugin-events.js", "../../../../../sdkjs/cell/plugin-events.js"]
   },
   "plugins": ["../correct_doclets.js"],
   "opts": {

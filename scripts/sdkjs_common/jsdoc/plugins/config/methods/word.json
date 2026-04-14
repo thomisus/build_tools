@@ -1,6 +1,6 @@
 {
   "source": {
-    "include": ["../../../../../sdkjs/word/api_plugins.js", "../../../../../sdkjs-forms/apiPlugins.js"]
+    "include": ["../../../../../sdkjs/common/plugins/plugin_base_api.js" ,"../../../../../sdkjs/common/apiBase_plugins.js", "../../../../../sdkjs/word/api_plugins.js", "../../../../../sdkjs-forms/apiPlugins.js"]
   },
   "plugins": ["../correct_doclets.js"],
   "opts": {
