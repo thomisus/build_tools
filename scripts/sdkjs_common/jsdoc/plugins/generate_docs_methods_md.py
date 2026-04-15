@@ -346,11 +346,11 @@ def generate_data_types_markdown(types, enumerations, classes, root='../'):
     return param_types_md
 
 def generate_class_markdown(class_name, methods, properties, enumerations, classes):
-    content = f"# {class_name}\n\n{get_translation(f"Represents the {class_name} class.")}\n\n"
+    content = f"# {class_name}\n\n{get_translation(f"Represents the {class_name} class.")}"
     
     content += generate_properties_markdown(properties, enumerations, classes)
 
-    content += f"\n## {get_translation("Methods")}\n\n"
+    content += f"\n\n## {get_translation("Methods")}\n\n"
     content += f"| {get_translation("Method")} | {get_translation("Returns")} | {get_translation("Description")} |\n"
     content += "| ------ | ------- | ----------- |\n"
     
@@ -391,19 +391,19 @@ def generate_method_markdown(method, enumerations, classes):
     # Use the 'examples' array only
     examples = method.get('examples', [])
 
-    content = f"# {method_name}\n\n{description}\n\n"
+    content = f"# {method_name}\n\n{description}"
     
     # Syntax
     param_list = ', '.join([param['name'] for param in params if '.' not in param['name']]) if params else ''
-    content += f"## {get_translation("Syntax")}\n\n```javascript\nexpression.{method_name}({param_list});\n```\n\n"
+    content += f"\n\n## {get_translation("Syntax")}\n\n```javascript\nexpression.{method_name}({param_list});\n```"
     if memberof:
-        content += f"`expression` - {get_translation(f"A variable that represents a [{memberof}](Methods.md) class.")}\n\n"
+        content += f"\n\n`expression` - {get_translation(f"A variable that represents a [{memberof}](Methods.md) class.")}"
 
     # Parameters
-    content += f"## {get_translation("Parameters")}\n\n"
+    content += f"\n\n## {get_translation("Parameters")}\n\n"
     if params:
         content += f"| **{get_translation("Name")}** | **{get_translation("Required/Optional")}** | **{get_translation("Data type")}** | **{get_translation("Default")}** | **{get_translation("Description")}** |\n"
-        content += "| ------------- | ------------- | ------------- | ------------- | ------------- |\n"
+        content += "| ------------- | ------------- | ------------- | ------------- | ------------- |"
         for param in params:
             param_name = param.get('name', 'Unnamed')
             param_types = param.get('type', {}).get('names', []) if param.get('type') else []
@@ -412,12 +412,12 @@ def generate_method_markdown(method, enumerations, classes):
             param_required = get_translation("Required") if not param.get('optional') else get_translation("Optional")
             param_default = correct_default_value(param.get('defaultvalue', ''), enumerations, classes)
 
-            content += f"| {param_name} | {param_required} | {param_types_md} | {param_default} | {param_desc} |\n"
+            content += f"\n| {param_name} | {param_required} | {param_types_md} | {param_default} | {param_desc} |"
     else:
-        content += f"{get_translation("This method doesn't have any parameters.")}\n"
+        content += f"{get_translation("This method doesn't have any parameters.")}"
 
     # Returns
-    content += f"\n## {get_translation("Returns")}\n\n"
+    content += f"\n\n## {get_translation("Returns")}\n\n"
     if returns:
         return_type_list = returns[0].get('type', {}).get('names', [])
         return_type_md = generate_data_types_markdown(return_type_list, enumerations, classes)
@@ -457,9 +457,9 @@ def generate_properties_markdown(properties, enumerations, classes, root='../'):
     if properties is None:
         return ''
     
-    content = f"## {get_translation("Properties")}\n\n"
+    content = f"\n\n## {get_translation("Properties")}\n\n"
     content += f"| {get_translation("Name")} | {get_translation("Type")} | {get_translation("Description")} |\n"
-    content += "| ---- | ---- | ----------- |\n"
+    content += "| ---- | ---- | ----------- |"
 
     for prop in sorted(properties, key=lambda m: m['name']):
         prop_name = prop['name']
@@ -467,7 +467,7 @@ def generate_properties_markdown(properties, enumerations, classes, root='../'):
         prop_description = correct_description(prop_description, root, isInTable=True)
         prop_types = prop['type']['names'] if prop.get('type') else []
         param_types_md = generate_data_types_markdown(prop_types, enumerations, classes, root)
-        content += f"| {prop_name} | {param_types_md} | {prop_description} |\n"
+        content += f"\n| {prop_name} | {param_types_md} | {prop_description} |"
 
     # Escape outside code blocks
     return escape_text_outside_code_blocks(content)
@@ -489,23 +489,23 @@ def generate_enumeration_markdown(enumeration, enumerations, classes):
     # Only use the 'examples' array
     examples = enumeration.get('examples', [])
 
-    content = f"# {enum_name}\n\n{description}\n\n"
+    content = f"# {enum_name}\n\n{description}"
 
     parsed_type = enumeration['type'].get('parsedType')
     if not parsed_type:
         # If parsedType is missing, just list 'type.names' if available
         type_names = enumeration['type'].get('names', [])
         if type_names:
-            content += f"## {get_translation("Type")}\n\n"
+            content += f"\n\n## {get_translation("Type")}\n\n"
             t_md = generate_data_types_markdown(type_names, enumerations, classes)
-            content += t_md + "\n\n"
+            content += t_md
     else:
         ptype = parsed_type['type']
 
         # 1) Handle TypeUnion
         if ptype == 'TypeUnion':
-            content += f"## {get_translation("Type")}\n\n{get_translation("Enumeration")}\n\n"
-            content += f"## {get_translation("Values")}\n\n"
+            content += f"\n\n## {get_translation("Type")}\n\n{get_translation("Enumeration")}"
+            content += f"\n\n## {get_translation("Values")}\n\n"
             for raw_t in enumeration['type']['names']:
                 # Attempt linking
                 if any(enum['name'] == raw_t for enum in enumerations):
@@ -518,7 +518,7 @@ def generate_enumeration_markdown(enumeration, enumerations, classes):
 
         # 2) Handle TypeApplication (e.g. Object.<string, string>)
         elif ptype == 'TypeApplication':
-            content += f"## {get_translation("Type")}\n\n{get_translation("Object")}\n\n"
+            content += f"\n\n## {get_translation("Type")}\n\n{get_translation("Object")}\n\n"
             type_names = enumeration['type'].get('names', [])
             if type_names:
                 t_md = generate_data_types_markdown(type_names, enumerations, classes)
@@ -532,9 +532,9 @@ def generate_enumeration_markdown(enumeration, enumerations, classes):
         if ptype not in ('TypeUnion', 'TypeApplication'):
             type_names = enumeration['type'].get('names', [])
             if type_names:
-                content += f"## {get_translation("Type")}\n\n"
+                content += f"\n\n## {get_translation("Type")}\n\n"
                 t_md = generate_data_types_markdown(type_names, enumerations, classes)
-                content += t_md + "\n\n"
+                content += t_md
 
     # Process examples array
     if examples:

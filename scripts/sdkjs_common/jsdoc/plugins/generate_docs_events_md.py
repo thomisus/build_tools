@@ -199,27 +199,26 @@ def generate_event_markdown(event, enumerations):
     desc = correct_description(event.get('description', ''), '../', True)
     params = event.get('params', [])
 
-    md = f"# {name}\n\n{desc}\n\n"
+    md = f"# {name}\n\n{desc}"
 
     # Parameters
-    md += f"## {get_translation("Parameters")}\n\n"
+    md += f"\n\n## {get_translation("Parameters")}\n\n"
     if params:
         md += f"| **{get_translation("Name")}** | **{get_translation("Data type")}** | **{get_translation("Description")}** |\n"
-        md += "| --------- | ------------- | ----------- |\n"
+        md += "| --------- | ------------- | ----------- |"
         for p in params:
             t_md = generate_data_types_markdown(
                 p.get('type', {}).get('names', []),
                 enumerations
             )
             d = correct_description(p.get('description', ''), isInTable=True)
-            md += f"| {p['name']} | {t_md} | {d} |\n"
-        md += "\n"
+            md += f"\n| {p['name']} | {t_md} | {d} |"
     else:
-        md += f"{get_translation("This event has no parameters.")}\n\n"
+        md += f"{get_translation("This event has no parameters.")}"
 
     for ex in event.get('examples', []):
         code = remove_js_comments(ex).strip()
-        md += f"```javascript\n{code}\n```\n\n"
+        md += f"\n\n```javascript\n{code}\n```"
 
     return escape_text_outside_code_blocks(md)
 
@@ -241,23 +240,23 @@ def generate_enumeration_markdown(enumeration, enumerations):
     # Only use the 'examples' array
     examples = enumeration.get('examples', [])
 
-    content = f"# Event_{enum_name}\n\n{description}\n\n"
+    content = f"# Event_{enum_name}\n\n{description}"
 
     parsed_type = enumeration['type'].get('parsedType')
     if not parsed_type:
         # If parsedType is missing, just list 'type.names' if available
         type_names = enumeration['type'].get('names', [])
         if type_names:
-            content += f"## {get_translation("Type")}\n\n"
+            content += f"\n\n## {get_translation("Type")}\n\n"
             t_md = generate_data_types_markdown(type_names, enumerations)
-            content += t_md + "\n\n"
+            content += t_md
     else:
         ptype = parsed_type['type']
 
         # 1) Handle TypeUnion
         if ptype == 'TypeUnion':
-            content += f"## {get_translation("Type")}\n\n{get_translation("Enumeration")}\n\n"
-            content += f"## {get_translation("Values")}\n\n"
+            content += f"\n\n## {get_translation("Type")}\n\n{get_translation("Enumeration")}"
+            content += f"\n\n## {get_translation("Values")}\n\n"
             for raw_t in enumeration['type']['names']:
                 # Attempt linking
                 if any(enum['name'] == raw_t for enum in enumerations):
@@ -268,11 +267,11 @@ def generate_enumeration_markdown(enumeration, enumerations):
 
         # 2) Handle TypeApplication (e.g. Object.<string, string>)
         elif ptype == 'TypeApplication':
-            content += f"## {get_translation("Type")}\n\n{get_translation("Object")}\n\n"
+            content += f"\n\n## {get_translation("Type")}\n\n{get_translation("Object")}\n\n"
             type_names = enumeration['type'].get('names', [])
             if type_names:
                 t_md = generate_data_types_markdown(type_names, enumerations)
-                content += f"**{get_translation("Type")}:** {t_md}\n\n"
+                content += f"**{get_translation("Type")}:** {t_md}"
 
         # 3) If properties are present, treat it like an object
         if enumeration.get('properties') is not None:
@@ -282,9 +281,9 @@ def generate_enumeration_markdown(enumeration, enumerations):
         if ptype not in ('TypeUnion', 'TypeApplication'):
             type_names = enumeration['type'].get('names', [])
             if type_names:
-                content += f"## {get_translation("Type")}\n\n"
+                content += f"\n\n## {get_translation("Type")}\n\n"
                 t_md = generate_data_types_markdown(type_names, enumerations)
-                content += t_md + "\n\n"
+                content += t_md
 
     # Process examples array
     if examples:
@@ -334,9 +333,9 @@ def generate_properties_markdown(properties, enumerations):
     if properties is None:
         return ''
     
-    content = f"## {get_translation("Properties")}\n\n"
+    content = f"\n\n## {get_translation("Properties")}\n\n"
     content += f"| {get_translation("Name")} | {get_translation("Type")} | {get_translation("Description")} |\n"
-    content += "| ---- | ---- | ----------- |\n"
+    content += "| ---- | ---- | ----------- |"
 
     for prop in sorted(properties, key=lambda m: m['name']):
         prop_name = prop['name']
@@ -344,7 +343,7 @@ def generate_properties_markdown(properties, enumerations):
         prop_description = correct_description(prop_description, isInTable=True)
         prop_types = prop['type']['names'] if prop.get('type') else []
         param_types_md = generate_data_types_markdown(prop_types, enumerations)
-        content += f"| {prop_name} | {param_types_md} | {prop_description} |\n"
+        content += f"\n| {prop_name} | {param_types_md} | {prop_description} |"
 
     # Escape outside code blocks
     return escape_text_outside_code_blocks(content)

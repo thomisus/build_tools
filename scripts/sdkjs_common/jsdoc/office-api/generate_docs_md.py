@@ -359,10 +359,10 @@ def generate_class_markdown(class_name, methods, properties, enumerations, class
     else:
         description = get_translation(f"Represents the {class_name} class.")
 
-    content = f"# {class_name}\n\n{description}\n\n"
+    content = f"# {class_name}\n\n{description}"
     content += generate_properties_markdown(properties, enumerations, classes)
 
-    content += f"\n## {get_translation(f"Methods")}\n\n"
+    content += f"\n\n## {get_translation(f"Methods")}\n\n"
     content += f"| {get_translation(f"Method")} | {get_translation(f"Returns")} | {get_translation(f"Description")} |\n"
     content += "| ------ | ------- | ----------- |\n"
     
@@ -396,19 +396,19 @@ def generate_method_markdown(method, enumerations, classes, example_editor_name)
     example = method.get('example', '')
     memberof = method.get('memberof', '')
 
-    content = f"# {method_name}\n\n{description}\n\n"
+    content = f"# {method_name}\n\n{description}"
     
     # Syntax
     param_list = ', '.join([param['name'] for param in params if '.' not in param['name']]) if params else ''
-    content += f"## {get_translation(f"Syntax")}\n\n```javascript\nexpression.{method_name}({param_list});\n```\n\n"
+    content += f"\n\n## {get_translation(f"Syntax")}\n\n```javascript\nexpression.{method_name}({param_list});\n```"
     if memberof:
-        content += f"`expression` - {get_translation(f"A variable that represents a [{memberof}](../{memberof}.md) class.")}\n\n"
+        content += f"\n\n`expression` - {get_translation(f"A variable that represents a [{memberof}](../{memberof}.md) class.")}"
 
     # Parameters
-    content += f"## {get_translation(f"Parameters")}\n\n"
+    content += f"\n\n## {get_translation(f"Parameters")}\n\n"
     if params:
         content += f"| **{get_translation(f"Name")}** | **{get_translation(f"Required/Optional")}** | **{get_translation(f"Data type")}** | **{get_translation(f"Default")}** | **{get_translation(f"Description")}** |\n"
-        content += "| ------------- | ------------- | ------------- | ------------- | ------------- |\n"
+        content += "| ------------- | ------------- | ------------- | ------------- | ------------- |"
         for param in params:
             param_name = param.get('name', 'Unnamed')
             param_types = param.get('type', {}).get('names', []) if param.get('type') else []
@@ -417,12 +417,12 @@ def generate_method_markdown(method, enumerations, classes, example_editor_name)
             param_required = f"{get_translation(f"Required")}" if not param.get('optional') else f"{get_translation(f"Optional")}"
             param_default = correct_default_value(param.get('defaultvalue', ''), enumerations, classes)
 
-            content += f"| {param_name} | {param_required} | {param_types_md} | {param_default} | {param_desc} |\n"
+            content += f"\n| {param_name} | {param_required} | {param_types_md} | {param_default} | {param_desc} |"
     else:
-        content += f"{get_translation("This method doesn't have any parameters.")}\n"
+        content += f"{get_translation("This method doesn't have any parameters.")}"
 
     # Returns
-    content += f"\n## {get_translation(f"Returns")}\n\n"
+    content += f"\n\n## {get_translation(f"Returns")}\n\n"
     if returns:
         return_type_list = returns[0].get('type', {}).get('names', [])
         return_type_md = generate_data_types_markdown(return_type_list, enumerations, classes)
@@ -448,9 +448,9 @@ def generate_properties_markdown(properties, enumerations, classes, root='../'):
     if properties is None:
         return ''
     
-    content = f"## {get_translation(f"Properties")}\n\n"
+    content = f"\n\n## {get_translation(f"Properties")}\n\n"
     content += f"| {get_translation(f"Name")} | {get_translation(f"Type")} | {get_translation(f"Description")} |\n"
-    content += "| ---- | ---- | ----------- |\n"
+    content += "| ---- | ---- | ----------- |"
 
     for prop in sorted(properties, key=lambda m: m['name']):
         prop_name = prop['name']
@@ -458,7 +458,7 @@ def generate_properties_markdown(properties, enumerations, classes, root='../'):
         prop_description = correct_description(prop_description, root, True)
         prop_types = prop['type']['names'] if prop.get('type') else []
         param_types_md = generate_data_types_markdown(prop_types, enumerations, classes, root)
-        content += f"| {prop_name} | {param_types_md} | {prop_description} |\n"
+        content += f"\n| {prop_name} | {param_types_md} | {prop_description} |"
 
     # Escape outside code blocks
     return escape_text_outside_code_blocks(content)
@@ -473,14 +473,14 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
     description = correct_description(description, '../')
     example = enumeration.get('example', '')
 
-    content = f"# {enum_name}\n\n{description}\n\n"
+    content = f"# {enum_name}\n\n{description}"
     
     ptype = enumeration['type']['parsedType']
     if ptype['type'] == 'TypeUnion':
         enum_empty = True # is empty enum
 
-        content += f"## {get_translation(f"Type")}\n\n{get_translation(f"Enumeration")}\n\n"
-        content += f"## {get_translation(f"Values")}\n\n"
+        content += f"\n\n## {get_translation(f"Type")}\n\n{get_translation(f"Enumeration")}"
+        content += f"\n\n## {get_translation(f"Values")}\n\n"
         # Each top-level name in the union
         for raw_t in enumeration['type']['names']:
             ts_t = convert_jsdoc_array_to_ts(raw_t)
@@ -500,10 +500,10 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
         if enum_empty == True:
             return None
     elif enumeration['properties'] is not None:
-        content += f"## {get_translation(f"Type")}\n\n{get_translation(f"Object")}\n\n"
+        content += f"\n\n## {get_translation(f"Type")}\n\n{get_translation(f"Object")}"
         content += generate_properties_markdown(enumeration['properties'], enumerations, classes)
     else:
-        content += f"## {get_translation(f"Type")}\n\n"
+        content += f"\n\n## {get_translation(f"Type")}\n\n"
         # If it's not a union and has no properties, simply print the type(s).
         types = enumeration['type']['names']
         t_md = generate_data_types_markdown(types, enumerations, classes, '../')
