@@ -7,6 +7,7 @@ exports.handlers = {
 
         const classesDocletsMap = {}; // doclets for classes write at the end
         let passedClasses = []; // passed classes for current editor
+        let passedClassesWithDirectMethods = []; // passed classes that have at least one direct (non-inherited) method for this editor
 
         // Remove dublicates doclets
         const latestDoclets = {};
@@ -38,8 +39,14 @@ exports.handlers = {
                 (!isMethod || hasTypeofEditorsTag);
 
             if (shouldAdd) {
-                if (doclet.memberof && false == passedClasses.includes(cleanName(doclet.memberof))) {
-                    passedClasses.push(cleanName(doclet.memberof));
+                if (doclet.memberof) {
+                    const className = cleanName(doclet.memberof);
+                    if (false == passedClasses.includes(className)) {
+                        passedClasses.push(className);
+                    }
+                    if (!doclet.inherited && false == passedClassesWithDirectMethods.includes(className)) {
+                        passedClassesWithDirectMethods.push(className);
+                    }
                 }
             }
             else if (doclet.kind == 'class') {
@@ -49,16 +56,19 @@ exports.handlers = {
 
         // remove unavailave classes in current editor
         passedClasses = passedClasses.filter(className => {
-            const doclet = classesDocletsMap[className];
-            if (!doclet) {
-                return true;
+            const classDoclet = classesDocletsMap[className];
+            if (!classDoclet) {
+                // no explicit class definition — allow only if it has direct (non-inherited) methods for this editor
+                return passedClassesWithDirectMethods.includes(className);
             }
 
-            const hasTypeofEditorsTag = !!(doclet.tags && doclet.tags.some(tag => tag.title === 'typeofeditors'));
+            const hasTypeofEditorsTag = !!(classDoclet.tags && classDoclet.tags.some(tag => tag.title === 'typeofeditors'));
+            if (hasTypeofEditorsTag) {
+                return classDoclet.tags.some(tag => tag.title === 'typeofeditors' && tag.value && tag.value.includes(process.env.EDITOR));
+            }
 
-            // class is passes if there is no editor tag or the current editor is among the tags
-            const isPassed = false == hasTypeofEditorsTag || doclet.tags.some(tag => tag.title === 'typeofeditors' && tag.value && tag.value.includes(process.env.EDITOR));
-            return isPassed;
+            // no editor tag on class — allow only if it has direct (non-inherited) methods for this editor
+            return passedClassesWithDirectMethods.includes(className);
         });
 
         for (let i = 0; i < e.doclets.length; i++) {
@@ -75,8 +85,9 @@ exports.handlers = {
 			if (doclet.inherits) {
 				const parentClass = doclet.inherits.split('#')[0];
 				const curClass = cleanName(doclet.memberof);
+				const curClassDoclet = classesDocletsMap[curClass];
 
-				if (!classesDocletsMap[curClass].augments || !classesDocletsMap[curClass].augments.includes(parentClass)) {
+				if (!curClassDoclet || !curClassDoclet.augments || !curClassDoclet.augments.includes(parentClass)) {
 					shouldAddMethod = false;
 				}
 			}
