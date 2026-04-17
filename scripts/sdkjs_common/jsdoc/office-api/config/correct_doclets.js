@@ -159,7 +159,9 @@ exports.handlers = {
                         columnno: doclet.meta.columnno
                     } : doclet.meta,
 
-                    see: doclet.see 
+                    see:      doclet.see,
+                    inherited: doclet.inherited,
+                    inherits:  doclet.inherits
                 };
 
                 // Add the filtered doclet to the array

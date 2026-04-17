@@ -473,6 +473,35 @@ def generate_method_markdown(method, enumerations, classes, root='../', example_
 
     return escape_text_outside_code_blocks(content)
 
+def generate_inherited_method_markdown(method, classes, root='../../', example_editor_name=''):
+    method_name = method['name']
+    description = correct_description(method.get('description', 'No description provided.'), root)
+
+    parent_class = method['inherits'].split('#')[0]
+    parent_method = method['inherits'].split('#')[1] if '#' in method['inherits'] else method_name
+    parent_link = f"[{parent_class}.{parent_method}]({root}{parent_class}/Methods/{parent_method}.md)"
+
+    content = f"# {method_name}\n\n{description}"
+    content += f"\n\n{get_translation(f'Inherited from {parent_link}.')}"
+
+    example = method.get('example', '')
+    current = method
+    while not example and current.get('inherited') and current.get('inherits'):
+        p_class = current['inherits'].split('#')[0]
+        p_method = current['inherits'].split('#')[1] if '#' in current['inherits'] else method_name
+        current = next(
+            (m for m in classes.get(p_class, []) if m['name'] == p_method),
+            None
+        )
+        if current:
+            example = current.get('example', '')
+        else:
+            break
+
+    content += generate_example_markdown(example, example_editor_name)
+    return escape_text_outside_code_blocks(content)
+
+
 def generate_example_markdown(example, example_editor_name=''):
     if example:
         comment, code = example.split('```js', 1)

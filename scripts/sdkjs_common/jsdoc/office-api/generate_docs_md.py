@@ -9,7 +9,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(
 import generate_docs_md_common as common
 from generate_docs_md_common import (
     load_json, write_markdown_file,
-    generate_class_markdown, generate_method_markdown, generate_enumeration_markdown,
+    generate_class_markdown, generate_method_markdown,
+    generate_inherited_method_markdown, generate_enumeration_markdown,
 )
 
 # Configuration files
@@ -85,7 +86,14 @@ def process_doclets(data, output_dir, editor_name):
 
         for method in methods:
             method_file_path = os.path.join(methods_dir, f"{method['name']}.md")
-            method_content = generate_method_markdown(method, enumerations, classes, root='../../', example_editor_name=example_editor_name)
+            if method.get('inherited') and method.get('inherits'):
+                method_content = generate_inherited_method_markdown(
+                    method, classes, root='../../', example_editor_name=example_editor_name
+                )
+            else:
+                method_content = generate_method_markdown(
+                    method, enumerations, classes, root='../../', example_editor_name=example_editor_name
+                )
             write_markdown_file(method_file_path, method_content)
 
             if not method.get('example', ''):
