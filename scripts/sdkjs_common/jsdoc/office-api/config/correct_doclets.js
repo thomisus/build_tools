@@ -7,6 +7,71 @@ exports.handlers = {
 
         const classesDocletsMap = {}; // doclets for classes write at the end
         let passedClasses = []; // passed classes for current editor
+        let passedClassesWithDirectMethods = []; // passed classes that have at least one direct (non-inherited) method for this editor
+
+        const isTransitiveAncestor = (cls, target) => {
+            const doclet = classesDocletsMap[cls];
+            if (!doclet || !doclet.augments) return false;
+            if (doclet.augments.includes(target)) return true;
+            return doclet.augments.some(parent => isTransitiveAncestor(parent, target));
+        };
+
+        // JSDoc only generates inherited doclets one level deep (B←C), so A←B←C is missing.
+        // Pre-generate transitive inherited doclets before any filtering.
+        {
+            const classAugmentsMap = {};
+            const classMethodsMap = {};
+
+            e.doclets.forEach(doclet => {
+                if (doclet.kind === 'class') {
+                    const name = cleanName(doclet.name);
+                    classAugmentsMap[name] = doclet.augments || [];
+                    if (!classMethodsMap[name]) classMethodsMap[name] = [];
+                }
+                if ((doclet.kind === 'function' || doclet.kind === 'method') && doclet.memberof) {
+                    const cls = cleanName(doclet.memberof);
+                    if (!classMethodsMap[cls]) classMethodsMap[cls] = [];
+                    classMethodsMap[cls].push(doclet);
+                }
+            });
+
+            const visited = new Set();
+            const order = [];
+            const visit = (cls) => {
+                if (visited.has(cls)) return;
+                visited.add(cls);
+                for (const parent of (classAugmentsMap[cls] || [])) visit(parent);
+                order.push(cls);
+            };
+            Object.keys(classAugmentsMap).forEach(visit);
+
+            const newDoclets = [];
+            for (const cls of order) {
+                for (const parent of (classAugmentsMap[cls] || [])) {
+                    const parentMethods = classMethodsMap[parent] || [];
+                    const clsMethodNames = new Set((classMethodsMap[cls] || []).map(m => cleanName(m.name)));
+
+                    for (const method of parentMethods) {
+                        const methodName = cleanName(method.name);
+                        if (!clsMethodNames.has(methodName)) {
+                            const inherited = {
+                                ...method,
+                                memberof: cls,
+                                longname: `${cls}#${methodName}`,
+                                inherited: true,
+                                inherits: method.inherited ? method.inherits : `${parent}#${methodName}`,
+                            };
+                            newDoclets.push(inherited);
+                            if (!classMethodsMap[cls]) classMethodsMap[cls] = [];
+                            classMethodsMap[cls].push(inherited);
+                            clsMethodNames.add(methodName);
+                        }
+                    }
+                }
+            }
+
+            e.doclets.push(...newDoclets);
+        }
 
         // Remove dublicates doclets
         const latestDoclets = {};
@@ -38,8 +103,14 @@ exports.handlers = {
                 (!isMethod || hasTypeofEditorsTag);
 
             if (shouldAdd) {
-                if (doclet.memberof && false == passedClasses.includes(cleanName(doclet.memberof))) {
-                    passedClasses.push(cleanName(doclet.memberof));
+                if (doclet.memberof) {
+                    const className = cleanName(doclet.memberof);
+                    if (false == passedClasses.includes(className)) {
+                        passedClasses.push(className);
+                    }
+                    if (!doclet.inherited && false == passedClassesWithDirectMethods.includes(className)) {
+                        passedClassesWithDirectMethods.push(className);
+                    }
                 }
             }
             else if (doclet.kind == 'class') {
@@ -49,16 +120,19 @@ exports.handlers = {
 
         // remove unavailave classes in current editor
         passedClasses = passedClasses.filter(className => {
-            const doclet = classesDocletsMap[className];
-            if (!doclet) {
-                return true;
+            const classDoclet = classesDocletsMap[className];
+            if (!classDoclet) {
+                // no explicit class definition — allow only if it has direct (non-inherited) methods for this editor
+                return passedClassesWithDirectMethods.includes(className);
             }
 
-            const hasTypeofEditorsTag = !!(doclet.tags && doclet.tags.some(tag => tag.title === 'typeofeditors'));
+            const hasTypeofEditorsTag = !!(classDoclet.tags && classDoclet.tags.some(tag => tag.title === 'typeofeditors'));
+            if (hasTypeofEditorsTag) {
+                return classDoclet.tags.some(tag => tag.title === 'typeofeditors' && tag.value && tag.value.includes(process.env.EDITOR));
+            }
 
-            // class is passes if there is no editor tag or the current editor is among the tags
-            const isPassed = false == hasTypeofEditorsTag || doclet.tags.some(tag => tag.title === 'typeofeditors' && tag.value && tag.value.includes(process.env.EDITOR));
-            return isPassed;
+            // no editor tag on class — allow only if it has direct (non-inherited) methods for this editor
+            return passedClassesWithDirectMethods.includes(className);
         });
 
         for (let i = 0; i < e.doclets.length; i++) {
@@ -76,7 +150,7 @@ exports.handlers = {
 				const parentClass = doclet.inherits.split('#')[0];
 				const curClass = cleanName(doclet.memberof);
 
-				if (!classesDocletsMap[curClass].augments || !classesDocletsMap[curClass].augments.includes(parentClass)) {
+				if (!isTransitiveAncestor(curClass, parentClass)) {
 					shouldAddMethod = false;
 				}
 			}
@@ -148,7 +222,9 @@ exports.handlers = {
                         columnno: doclet.meta.columnno
                     } : doclet.meta,
 
-                    see: doclet.see 
+                    see:      doclet.see,
+                    inherited: doclet.inherited,
+                    inherits:  doclet.inherits
                 };
 
                 // Add the filtered doclet to the array

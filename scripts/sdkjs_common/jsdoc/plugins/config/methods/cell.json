@@ -1,6 +1,6 @@
 {
   "source": {
-    "include": ["../../../../../sdkjs/cell/api_plugins.js"]
+    "include": ["../../../../../sdkjs/common/plugins/plugin_base_api.js" ,"../../../../../sdkjs/common/apiBase_plugins.js", "../../../../../sdkjs/cell/api_plugins.js"]
   },
   "plugins": ["../correct_doclets.js"],
   "opts": {

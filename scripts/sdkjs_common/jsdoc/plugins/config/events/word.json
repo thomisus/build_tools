@@ -1,6 +1,6 @@
 {
   "source": {
-    "include": ["../../../../../sdkjs/word/plugin-events.js"]
+    "include": ["../../../../../sdkjs/common/base-plugin-events.js", "../../../../../sdkjs/word/plugin-events.js"]
   },
   "plugins": ["../correct_doclets.js"],
   "opts": {

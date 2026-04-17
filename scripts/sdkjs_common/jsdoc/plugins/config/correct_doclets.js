@@ -15,7 +15,10 @@ exports.handlers = {
 
         for (let i = 0; i < e.doclets.length; i++) {
             const doclet = e.doclets[i];
-            if (true == doclet.undocumented || doclet.kind == 'package') {
+			const hasTypeofEditorsTag = !!(doclet.tags && doclet.tags.some(tag => tag.title === 'typeofeditors'));
+			const isPassed = false == hasTypeofEditorsTag || doclet.tags.some(tag => tag.title === 'typeofeditors' && tag.value && tag.value.includes(process.env.EDITOR));
+			
+            if (true == doclet.undocumented || doclet.kind == 'package' || !isPassed) {
                 continue;
             }
 
