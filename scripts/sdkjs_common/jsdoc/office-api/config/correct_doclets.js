@@ -9,6 +9,70 @@ exports.handlers = {
         let passedClasses = []; // passed classes for current editor
         let passedClassesWithDirectMethods = []; // passed classes that have at least one direct (non-inherited) method for this editor
 
+        const isTransitiveAncestor = (cls, target) => {
+            const doclet = classesDocletsMap[cls];
+            if (!doclet || !doclet.augments) return false;
+            if (doclet.augments.includes(target)) return true;
+            return doclet.augments.some(parent => isTransitiveAncestor(parent, target));
+        };
+
+        // JSDoc only generates inherited doclets one level deep (B←C), so A←B←C is missing.
+        // Pre-generate transitive inherited doclets before any filtering.
+        {
+            const classAugmentsMap = {};
+            const classMethodsMap = {};
+
+            e.doclets.forEach(doclet => {
+                if (doclet.kind === 'class') {
+                    const name = cleanName(doclet.name);
+                    classAugmentsMap[name] = doclet.augments || [];
+                    if (!classMethodsMap[name]) classMethodsMap[name] = [];
+                }
+                if ((doclet.kind === 'function' || doclet.kind === 'method') && doclet.memberof) {
+                    const cls = cleanName(doclet.memberof);
+                    if (!classMethodsMap[cls]) classMethodsMap[cls] = [];
+                    classMethodsMap[cls].push(doclet);
+                }
+            });
+
+            const visited = new Set();
+            const order = [];
+            const visit = (cls) => {
+                if (visited.has(cls)) return;
+                visited.add(cls);
+                for (const parent of (classAugmentsMap[cls] || [])) visit(parent);
+                order.push(cls);
+            };
+            Object.keys(classAugmentsMap).forEach(visit);
+
+            const newDoclets = [];
+            for (const cls of order) {
+                for (const parent of (classAugmentsMap[cls] || [])) {
+                    const parentMethods = classMethodsMap[parent] || [];
+                    const clsMethodNames = new Set((classMethodsMap[cls] || []).map(m => cleanName(m.name)));
+
+                    for (const method of parentMethods) {
+                        const methodName = cleanName(method.name);
+                        if (!clsMethodNames.has(methodName)) {
+                            const inherited = {
+                                ...method,
+                                memberof: cls,
+                                longname: `${cls}#${methodName}`,
+                                inherited: true,
+                                inherits: method.inherited ? method.inherits : `${parent}#${methodName}`,
+                            };
+                            newDoclets.push(inherited);
+                            if (!classMethodsMap[cls]) classMethodsMap[cls] = [];
+                            classMethodsMap[cls].push(inherited);
+                            clsMethodNames.add(methodName);
+                        }
+                    }
+                }
+            }
+
+            e.doclets.push(...newDoclets);
+        }
+
         // Remove dublicates doclets
         const latestDoclets = {};
         e.doclets.forEach(doclet => {
@@ -85,9 +149,8 @@ exports.handlers = {
 			if (doclet.inherits) {
 				const parentClass = doclet.inherits.split('#')[0];
 				const curClass = cleanName(doclet.memberof);
-				const curClassDoclet = classesDocletsMap[curClass];
 
-				if (!curClassDoclet || !curClassDoclet.augments || !curClassDoclet.augments.includes(parentClass)) {
+				if (!isTransitiveAncestor(curClass, parentClass)) {
 					shouldAddMethod = false;
 				}
 			}
