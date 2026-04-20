@@ -97,6 +97,9 @@ def escape_text_outside_code_blocks(markdown: str) -> str:
 # ─── i18n ─────────────────────────────────────────────────────────────────────
 
 def get_translation(key):
+    if not key:
+        return key
+
     def process_part(k):
         if k not in translations:
             missed_translations[k] = k
@@ -191,7 +194,7 @@ def generate_data_types_markdown(types, enumerations, classes, root='../', enum_
     """
     converted = [convert_jsdoc_array_to_ts(t) for t in types]
 
-    primitive_types = {"string", "number", "boolean", "null", "undefined", "any", "object",
+    primitive_types = {"string", "number", "boolean", "null", "undefined", "any", "object", "array",
                        "false", "true", "json", "function", "date", "{}"}
 
     def is_primitive(t):
@@ -370,27 +373,27 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
 
         if ptype == 'TypeUnion':
             content += f"\n\n## {get_translation('Type')}\n\n{get_translation('Enumeration')}"
-            content += f"\n\n## {get_translation('Values')}\n\n"
+            content += f"\n\n## {get_translation('Values')}\n"
             if enum_file_prefix:
                 for raw_t in enumeration['type']['names']:
                     if any(enum['name'] == raw_t for enum in enumerations):
                         used_enumerations.add(raw_t)
-                        content += f"- [{raw_t}](../Enumeration/{enum_file_prefix}{raw_t}.md)\n"
+                        content += f"\n- [{raw_t}](../Enumeration/{enum_file_prefix}{raw_t}.md)"
                     else:
-                        content += f"- {raw_t}\n"
+                        content += f"\n- {raw_t}"
             else:
                 enum_empty = True
                 for raw_t in enumeration['type']['names']:
                     ts_t = convert_jsdoc_array_to_ts(raw_t)
                     if any(enum['name'] == raw_t for enum in enumerations):
                         used_enumerations.add(raw_t)
-                        content += f"- [{ts_t}](../Enumeration/{raw_t}.md)\n"
+                        content += f"\n- [{ts_t}](../Enumeration/{raw_t}.md)"
                         enum_empty = False
                     elif raw_t in classes:
-                        content += f"- [{ts_t}](../{raw_t}/{raw_t}.md)\n"
+                        content += f"\n- [{ts_t}](../{raw_t}/{raw_t}.md)"
                         enum_empty = False
                     elif ts_t.find('Api') == -1:
-                        content += f"- {ts_t}\n"
+                        content += f"\n- {ts_t}"
                         enum_empty = False
                 if enum_empty:
                     return None
@@ -399,11 +402,7 @@ def generate_enumeration_markdown(enumeration, enumerations, classes, example_ed
             content += f"\n\n## {get_translation('Type')}\n\n"
             type_names = enumeration['type'].get('names', [])
             if type_names:
-                t_md = generate_data_types_markdown(type_names, enumerations, classes, enum_file_prefix=enum_file_prefix)
-                if t_md.endswith('[]'):
-                    content += f"{get_translation('array')}"
-                else:
-                    content += f"{get_translation('object')}"
+                content += generate_data_types_markdown(type_names, enumerations, classes, enum_file_prefix=enum_file_prefix)
         elif ptype not in ('TypeUnion', 'TypeApplication'):
             type_names = enumeration['type'].get('names', [])
             if type_names:
@@ -507,5 +506,5 @@ def generate_example_markdown(example, example_editor_name=''):
         comment, code = example.split('```js', 1)
         comment = get_translation(comment.strip())
         code = code.strip().strip('`').strip()
-        return f"\n\n## {get_translation('Example')}\n\n{comment}{'\n\n' if comment else ''}```javascript{" " if example_editor_name else ""}{example_editor_name}\n{code}\n```\n\n"
-    return '\n\n'
+        return f"\n\n## {get_translation('Example')}\n\n{comment}{'\n\n' if comment else ''}```javascript{" " if example_editor_name else ""}{example_editor_name}\n{code}\n```\n"
+    return '\n'
