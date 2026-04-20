@@ -189,10 +189,10 @@ exports.handlers = {
                     })) : doclet.params,
 
                     returns: doclet.returns ? doclet.returns.map(returnObj => ({
-                        type: {
+                        type: returnObj.type ? {
                           names:        returnObj.type.names,
                           parsedType:   returnObj.type.parsedType
-                        }
+                        } : returnObj.type
                     })) : doclet.returns,
 
                     name:           doclet.name,

@@ -148,13 +148,54 @@ def create_entry(system_message, user_message, assistant_message, model):
         "upvoted": True
     }
 
-    if model is not "":
+    if model != "":
         entry["model"] = model
 
     return entry 
 
+def load_system_prompts():
+    """
+    Try to load per-editor system prompts from
+    <repo>/ai-transformers/converters/datasets/office-js-api/system.txt
+    Falls back to the legacy generic prompt if the file is missing.
+    """
+    # Resolve path relative to the build_tools root
+    system_txt = os.path.join(root, 'ai-transformers', 'converters', 'datasets',
+                              'office-js-api', 'system.txt')
+    if os.path.exists(system_txt):
+        with open(system_txt, encoding='utf-8') as f:
+            import json as _json
+            return _json.load(f)
+    return {}
+
+# editor_name (word/cell/slide/forms/pdf) → system.txt key (xlsx/docx/pptx/pdf)
+EDITOR_TO_PROMPT_KEY = {
+    "word":  "docx",
+    "cell":  "xlsx",
+    "slide": "pptx",
+    "forms": "docx",  # forms share the docx editor
+    "pdf":   "pdf",
+}
+
+_system_prompts_cache = None
+
+def get_system_message(editor_name):
+    global _system_prompts_cache
+    if _system_prompts_cache is None:
+        _system_prompts_cache = load_system_prompts()
+    key = EDITOR_TO_PROMPT_KEY.get(editor_name, "docx")
+    if key in _system_prompts_cache:
+        return _system_prompts_cache[key]
+    # Legacy fallback
+    return (f'You are an expert in API for library from OnlyOffice. '
+            f'The library provides functions for editing {editors_names[editor_name]} documents. '
+            f'Your functional capabilities: 1) Explanation of Onlyoffice JavaScript API classes '
+            f'and their methods and parameters. 2) Assistance in writing Onlyoffice JavaScript API '
+            f'examples upon user request. 3) Reviewing user examples, assisting in finding and '
+            f'fixing their mistakes.')
+
 def process_doclets(doclets, output_entries, editor_name, model):
-    system_message = f'You are an expert in API for library from OnlyOffice. The library provides functions for editing {editors_names[editor_name]} documents. Your functional capabilities: 1) Explanation of Onlyoffice JavaScript API classes and their methods and parameters. 2) Assistance in writing Onlyoffice JavaScript API examples upon user request. 3) Reviewing user examples, assisting in finding and fixing their mistakes.'
+    system_message = get_system_message(editor_name)
     
     for doclet in doclets:
         kind = doclet.get("kind", "").lower()
@@ -204,13 +245,20 @@ def process_doclets(doclets, output_entries, editor_name, model):
             
 def generate(output_dir, model):
     os.chdir(os.path.dirname(script_path))
-    
-    print('Generating documentation JSONL dataset...')
-    
-    shutil.rmtree(output_dir, ignore_errors=True)
-    os.makedirs(output_dir)
 
-    generate_docs_json.generate(f'{output_dir}/tmp_json')
+    print('Generating documentation JSONL dataset...')
+
+    # Clean only the known intermediate artefacts, not the whole output_dir
+    # (the output_dir may contain user-managed files such as system.txt,
+    # regenerate.py, etc.). The old dataset.jsonl is left in place and will
+    # be overwritten at the end on success; if generation fails midway, the
+    # previous dataset is preserved.
+    os.makedirs(output_dir, exist_ok=True)
+    tmp_json = f'{output_dir}/tmp_json'
+    if os.path.exists(tmp_json):
+        shutil.rmtree(tmp_json, ignore_errors=True)
+
+    generate_docs_json.generate(tmp_json)
     
     output_entries = []
     output_filename = "dataset.jsonl"
