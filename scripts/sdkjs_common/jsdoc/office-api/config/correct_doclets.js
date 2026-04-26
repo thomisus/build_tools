@@ -35,6 +35,9 @@ exports.handlers = {
                 }
             });
 
+            const matchesEditor = m =>
+                m.tags && m.tags.some(t => t.title === 'typeofeditors' && t.value.includes(process.env.EDITOR));
+
             const visited = new Set();
             const order = [];
             const visit = (cls) => {
@@ -48,8 +51,10 @@ exports.handlers = {
             const newDoclets = [];
             for (const cls of order) {
                 for (const parent of (classAugmentsMap[cls] || [])) {
-                    const parentMethods = classMethodsMap[parent] || [];
-                    const clsMethodNames = new Set((classMethodsMap[cls] || []).map(m => cleanName(m.name)));
+                    const parentMethods = (classMethodsMap[parent] || []).filter(matchesEditor);
+                    const clsMethodNames = new Set(
+                        (classMethodsMap[cls] || []).filter(matchesEditor).map(m => cleanName(m.name))
+                    );
 
                     for (const method of parentMethods) {
                         const methodName = cleanName(method.name);
