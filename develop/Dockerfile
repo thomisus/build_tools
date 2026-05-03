@@ -18,4 +18,5 @@ RUN apt-get update -y && \
 	if [ -s /etc/supervisor/conf.d/ds-example.conf ] ; then sed -i 's,autostart=false,autostart=true,' /etc/supervisor/conf.d/ds-example.conf; fi && \
 	if [ -s /app/ds/setup/config/supervisor/ds/ds-example.conf ] ; then sed -i 's,autostart=false,autostart=true,' /app/ds/setup/config/supervisor/ds/ds-example.conf; fi && \
 	rm -rf /var/lib/apt/lists/*
+COPY run_build_js.py /var/www/onlyoffice/documentserver/build_tools/develop/run_build_js.py
 ENTRYPOINT python3 /var/www/onlyoffice/documentserver/build_tools/develop/run_build_js.py /var/www/onlyoffice/documentserver $@ && /bin/sh -c /app/ds/run-document-server.sh 

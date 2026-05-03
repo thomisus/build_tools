@@ -54,6 +54,10 @@ image and build_tools branch, for example
 `DOCUMENTSERVER_IMAGE=onlyoffice/documentserver:9.4.0` and
 `BUILDTOOLS_BRANCH=release/v9.4.0`.
 
+**Note**: On container startup, the build_tools branch is detected from the
+copy used inside the container. The branch selects the matching core archive,
+including FileConverter binaries.
+
 **Note**: Sometimes the build may fail due to network errors. Just restart it.
 
 ## Clone development modules
