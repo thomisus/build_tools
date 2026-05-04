@@ -21,12 +21,12 @@ def get_branch_name(directory):
 if not base.is_dir("./python3"):
   base.cmd("./python.sh")
 
-if not base.is_dir("./qt_build"):
-  base.cmd("./python3/bin/python3", ["./qt_binary_fetch.py", "all"])
-
 if not base.is_file("./packages_complete"):
   base.cmd("./python3/bin/python3", ["./deps.py"])
   base.cmd("sudo", ["./cmake.sh"])
+
+if not base.is_dir("./qt_build"):
+  base.cmd("./python3/bin/python3", ["./qt_binary_fetch.py", "all"])
 
 if not base.is_dir("./sysroot/ubuntu16-amd64-sysroot"):
   base.cmd_in_dir("./sysroot", "./../python3/bin/python3", ["./fetch.py", "all"])
