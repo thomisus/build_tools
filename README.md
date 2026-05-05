@@ -78,19 +78,19 @@ If you prefer using Docker, you can build all products inside a container. This 
    cd build_tools
     ```
 
-1. **Create an output directory:**  
+4. **Create an output directory:**  
 
    ```bash
    mkdir out
     ```
 
-2. **Build the Docker image:**  
+5. **Build the Docker image:**  
 
    ```bash
    docker build --tag onlyoffice-document-editors-builder .
    ```
 
-3. **Run the container to start the build:** 
+6. **Run the container to start the build:** 
    
    This command mounts your local out directory into the container, so the final build files will appear on your machine. 
 
