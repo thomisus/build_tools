@@ -12,7 +12,16 @@ It automatically fetches all the required dependencies and source code to build 
 
 ## **How do I use it on Linux? 🐧**
 
->This guide has been tested and verified on **Ubuntu 16.04**.
+>This guide has been tested and verified on:
+
+| Component     | Specification     |
+|---------------|-------------------|
+| OS            | Ubuntu 24.04      |
+| Architecture  | amd64             |
+| CPU           | 4 cores           |
+| RAM           | 8 GB              |
+| Swap          | 4 GB              |
+| Storage       | 100 GB SSD        |
 
 ### **Step 1: Install dependencies**
 
@@ -42,12 +51,12 @@ Now, you're ready to build the ONLYOFFICE products.
    This is where the magic happens! Running the script without any options will build all three products: Document Server, Document Builder, and Desktop Editors.  
 
    ```bash
-   ./automate.py
+   python3 ./automate.py
    ```
 You can also build ONLYOFFICE products separately. Just run the script with the parameter corresponding to the necessary product. For example, to build *Desktop Editors* and *Document Server*
-  ```bash
-   ./automate.py desktop server
-   ```
+```bash
+python3 ./automate.py desktop server
+```
 
 **Perfect!** Once the script finishes, you will find the compiled products in the ```./out``` directory.
 
@@ -87,7 +96,7 @@ Don't need everything? You can save time by building only the products you need.
 * How to build
 
   ```bash
-  ./automate.py builder
+  python3 ./automate.py builder
   ```
 * How to run
   ```bash
@@ -99,7 +108,7 @@ Don't need everything? You can save time by building only the products you need.
 
 * How to build
   ```bash
-  ./automate.py desktop
+  python3 ./automate.py desktop
   ```
 * How to run
   ```bash
@@ -110,7 +119,7 @@ Don't need everything? You can save time by building only the products you need.
 ### Need just the [Docs (Document Server)](https://github.com/ONLYOFFICE/DocumentServer)❓
 * How to build
   ```bash
-  ./automate.py server
+  python3 ./automate.py server
   ```
 * How to run
 
