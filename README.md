@@ -66,19 +66,31 @@ python3 ./automate.py desktop server
 
 If you prefer using Docker, you can build all products inside a container. This is a great way to keep your local system clean.
 
-1. **Create an output directory:**  
+1. **Install Docker** https://docs.docker.com/engine/install/
+
+2. **Clone the build_tools repository:**
+   ```bash
+   git clone https://github.com/ONLYOFFICE/build_tools.git
+    ```
+
+3. **Go to the build_tools:**
+   ```bash
+   cd build_tools
+    ```
+
+4. **Create an output directory:**  
 
    ```bash
    mkdir out
     ```
 
-2. **Build the Docker image:**  
+5. **Build the Docker image:**  
 
    ```bash
    docker build --tag onlyoffice-document-editors-builder .
    ```
 
-3. **Run the container to start the build:** 
+6. **Run the container to start the build:** 
    
    This command mounts your local out directory into the container, so the final build files will appear on your machine. 
 
