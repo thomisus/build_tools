@@ -66,6 +66,18 @@ python3 ./automate.py desktop server
 
 If you prefer using Docker, you can build all products inside a container. This is a great way to keep your local system clean.
 
+1. **Install Docker** https://docs.docker.com/engine/install/
+
+2. **Clone the build_tools repository:**
+   ```bash
+   git clone https://github.com/ONLYOFFICE/build_tools.git
+    ```
+
+3. **Go to the build_tools:**
+   ```bash
+   cd build_tools
+    ```
+
 1. **Create an output directory:**  
 
    ```bash
