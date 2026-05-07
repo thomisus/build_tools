@@ -89,8 +89,10 @@ def build_server_with_addons():
   for addon in addons:
     if (addon):
       addon_dir = base.get_script_dir() + "/../../" + addon
-      if (base.is_exist(addon_dir)):
+      if (base.is_exist(addon_dir + "/package.json")):
+        base.print_info("npm ci: " + addon)
         base.cmd_in_dir(addon_dir, "npm", ["ci"])
+        base.print_info("npm run build: " + addon)
         base.cmd_in_dir(addon_dir, "npm", ["run", "build"])
 
 def build_server_develop():
