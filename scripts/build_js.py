@@ -120,7 +120,14 @@ def _run_grunt(directory, params=[]):
   return base.cmd_in_dir(directory, "grunt", params)
 
 def _run_build_py(directory, params=[]):
-  return base.cmd_in_dir(directory, "python", ["build.py"] + params)
+  branding = config.option("branding-name")
+  directory_branding = directory
+  directory_result = directory
+  if ("" != branding):
+    directory_branding += "/../../" + branding + "/sdkjs/build"
+    if base.is_file(directory_branding + "/build.py"):
+      directory_result = directory_branding
+  return base.cmd_in_dir(directory_result, "python", ["build.py"] + params)
 
 def build_interface(directory):
   _run_npm(directory)
