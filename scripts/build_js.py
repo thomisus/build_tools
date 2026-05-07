@@ -139,7 +139,7 @@ def get_build_param(minimize=True):
     minimize_scripts = False
   beta = "true" if config.check_option("beta", "1") else "false"
   params = ["--beta=" + beta]
-  return params + (["--level=ADVANCED"] if minimize_scripts else ["--level=WHITESPACE_ONLY", "--formatting=PRETTY_PRINT"])
+  return params + (["--minimize"] if minimize_scripts else ["--no-minimize"])
 
 def build_sdk_desktop(directory):
   _run_build_py(directory, get_build_param() + ["--desktop"] + base.sdkjs_addons_param() + base.sdkjs_addons_desktop_param())
