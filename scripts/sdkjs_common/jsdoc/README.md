@@ -14,7 +14,7 @@ and Plugins (Methods/Events) API using the following Python scripts:
 
 ```bash
 Node.js v20 and above
-Python v3.10 and above
+Python v3.12 and above
 ```
 
 ## Installation
