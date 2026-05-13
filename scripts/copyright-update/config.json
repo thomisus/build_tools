@@ -1,4 +1,4 @@
 {
-  "base_branch": "",
-  "repositories": []
+  "base_branch": "release/v9.4.0",
+  "repositories": ["server", "ONLYOFFICE/server-admin-panel", "sdkjs", "sdkjs-ooxml"]
 }

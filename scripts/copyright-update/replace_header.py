@@ -400,6 +400,14 @@ def parse_args(argv):
         help='Do not write files; report what would change. Local debugging only.',
     )
     parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Print one line per `replaced` file to stdout. Off by default to keep the '
+             'workflow run log small for repos with thousands of files; the totals '
+             'line is always printed. `not_our_header` and error files are always '
+             'printed because they are actionable.',
+    )
+    parser.add_argument(
         '--similarity-threshold',
         type=float,
         default=SIMILARITY_THRESHOLD,
@@ -508,12 +516,14 @@ def main(argv=None):
             totals['errors'] += 1
             entry['error'] = err
         per_file.append(entry)
-        if cls == CLASS_REPLACE:
+        if cls == CLASS_REPLACE and args.verbose:
             verb = 'would replace' if args.dry_run else 'replaced'
             print('{}: {}'.format(verb, rel))
         elif cls == CLASS_SKIP_NOT_OURS:
             # Echo to stdout so the workflow run log carries the full list
             # of files that need manual review or threshold tuning.
+            # `not_our_header` is typically a small subset (a few percent of
+            # scanned files) so stdout volume stays bounded.
             print('not_our_header: {}'.format(rel))
         elif cls == 'ERROR':
             print('error: {}: {}'.format(rel, err), file=sys.stderr)

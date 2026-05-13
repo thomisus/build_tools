@@ -102,9 +102,21 @@ jobs:
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
-          # Iterate over repos; one repo's failure must not kill the loop.
+          # Iterate over repos; one repo's failure must not kill the loop,
+          # but it MUST mark the job as failed at the end -- otherwise a
+          # silently-failed push would show as a green run.
+          #
+          # Each iteration is wrapped in `::group::` / `::endgroup::` so
+          # the run log renders each repository as its own collapsible
+          # block in the Actions UI. Both Gitea (act) and GitHub Actions
+          # honor these markers.
+          REPO_INDEX=0
+          FAILED=0
           while IFS= read -r REPO; do
             [ -z "$REPO" ] && continue
+            REPO_INDEX=$((REPO_INDEX + 1))
+
+            echo "::group::[${REPO_INDEX}] ${REPO}"
 
             SLUG="${REPO//\//-}"
             REPORT_DIR="$GITHUB_WORKSPACE/reports/$SLUG"
@@ -139,14 +151,25 @@ jobs:
               gen_branch="feature/copyright-${BASE_SLUG}-${DATE_SLUG}"
               echo "[$REPO] generated_branch=$gen_branch"
 
-              git clone "$READ_REMOTE" "$TARGET_DIR"
-              cd "$TARGET_DIR"
-              git fetch origin "$effective_base"
-              # `ls-remote --exit-code` distinguishes "branch missing"
-              # (exit 2 -> ok, first push will create it) from auth / network /
-              # remote failures (any other non-zero -> propagate).
-              if git ls-remote --exit-code --heads origin "$gen_branch" >/dev/null 2>&1; then
-                git fetch origin "$gen_branch"
+              # Probe whether the disposable branch already exists on the
+              # remote BEFORE cloning. If it does, somebody already ran the
+              # workflow today against the same base; skip this repo to avoid
+              # re-doing the work. Manually delete the branch in Gitea UI to
+              # force a fresh run.
+              # ls-remote on bare URL works without a local clone. We use
+              # READ_REMOTE here (it has read scope on the target). Exit
+              # code semantics: 0 = found, 2 = not found, other = error.
+              if git ls-remote --exit-code --heads "$READ_REMOTE" "$gen_branch" >/dev/null 2>&1; then
+                echo "[$REPO] generated branch '$gen_branch' already exists on remote -- skipping (delete the branch to re-run)"
+                {
+                  echo "### $REPO"
+                  echo "- base_branch: \`$effective_base\`"
+                  echo "- generated_branch: \`$gen_branch\`"
+                  echo "- branch_created: \`false\`"
+                  echo "- reason: \`already_generated\`"
+                  echo ""
+                } > "$SUMMARY_FILE"
+                exit 0
               else
                 rc=$?
                 if [ "$rc" -ne 2 ]; then
@@ -154,6 +177,10 @@ jobs:
                   exit "$rc"
                 fi
               fi
+
+              git clone "$READ_REMOTE" "$TARGET_DIR"
+              cd "$TARGET_DIR"
+              git fetch origin "$effective_base"
               git checkout -B "$gen_branch" "origin/$effective_base"
               cd "$GITHUB_WORKSPACE"
 
@@ -202,9 +229,9 @@ jobs:
                 reason="ok"
               fi
 
-              # Build per-repo summary. not_our_header gets a dedicated
-              # highlight section listing the first 10 file paths -- that is
-              # the actionable subset a reviewer should look at.
+              # Build per-repo summary: stats line + highlight bullet for
+              # not_our_header (count only; the actual file paths live in
+              # the run log, where the script echoes them).
               {
                 echo "### $REPO"
                 echo "- base_branch: \`$effective_base\`"
@@ -216,10 +243,10 @@ jobs:
                 echo "- no_header: \`$stat_no_header\`  vendor: \`$stat_vendor\`  already_new: \`$stat_already_new\`  errors: \`$stat_errors\`"
                 echo ""
                 if [ "$stat_not_our" != "0" ]; then
-                  # The full list of paths is echoed to stdout by the script
-                  # and lives in the workflow run log; the summary only needs
-                  # the highlight and the count.
-                  echo "**${stat_not_our} files have our holder but did not match the OLD template** -- review manually or lower \`--similarity-threshold\`. Full list in the run log (grep for \`not_our_header:\`)."
+                  # Full file paths live in the run log (script echoes them)
+                  # and in the per-repo `report.txt` inside the `reports`
+                  # artifact (grep for `not_our_header:`).
+                  echo "**${stat_not_our} files have our holder but did not match the OLD template** -- review manually or lower \`--similarity-threshold\`. Full list in the run log and in \`reports\` artifact."
                   echo ""
                 fi
               } > "$SUMMARY_FILE"
@@ -227,6 +254,7 @@ jobs:
             rc=$?
 
             if [ "$rc" -ne 0 ]; then
+              FAILED=1
               {
                 echo "### $REPO"
                 echo "- error: subshell exited with code $rc (see job log for details)"
@@ -235,7 +263,23 @@ jobs:
             fi
 
             cat "$SUMMARY_FILE" >> "$GITHUB_STEP_SUMMARY"
+            echo "[${REPO_INDEX}] ${REPO} finished, subshell_rc=${rc}"
+            echo "::endgroup::"
           done < <(echo "$REPOS_JSON" | jq -r '.[]')
+
+          echo ""
+          echo "============================================================"
+          echo "loop completed: processed ${REPO_INDEX} repositories, failed=${FAILED}"
+          echo "============================================================"
+
+          # Fail the job if any repo failed. Per-repo summaries already
+          # describe what went wrong; we just need the overall run to be
+          # red so it does not get ignored.
+          if [ "$FAILED" -ne 0 ]; then
+            echo ""
+            echo "One or more repositories failed -- see per-repo summaries above."
+            exit 1
+          fi
 
       - name: Note empty target list
         if: steps.resolve.outputs.enabled != 'true'
@@ -246,3 +290,10 @@ jobs:
             echo ""
             echo "No target repositories were configured; nothing to do."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports artifact
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: reports
+          path: reports/

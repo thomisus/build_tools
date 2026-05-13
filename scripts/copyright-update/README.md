@@ -99,10 +99,14 @@ For every target repository the workflow:
 1. Resolves the base branch (input/config value, or the repo's default
    branch via Gitea API when empty).
 2. Generates a disposable branch name `feature/copyright-<base-slug>-YYYY-MM-DD`.
-3. Clones the target via `READ_PAT`, fetches the resolved base branch
-   (and the disposable branch if it already exists, so
-   `--force-with-lease` has the correct lease).
-4. Creates the local disposable branch off the resolved base.
+3. **If the generated branch already exists on the target remote, the
+   repo is skipped** with `reason=already_generated`. This avoids
+   redoing the replacement when an operator extends `config.json` with
+   new repos and re-pushes; previously processed repos keep their
+   existing branch untouched. To force a fresh run, manually delete
+   the remote branch in the Gitea UI.
+4. Otherwise: clones the target via `READ_PAT`, fetches the resolved
+   base branch, and checks out the disposable branch off it.
 5. Runs the replacement script over all tracked source files.
 6. If anything changed: commits, swaps `origin`'s push URL to the
    `USERNAME:TOKEN` bot credentials, and pushes via
@@ -142,17 +146,23 @@ The workflow run page lists, for each target repository:
 - `base_branch` -- the branch the work is based on
 - `generated_branch` -- the disposable branch that was created/updated
 - `branch_created` -- `true` if changes were pushed, `false` if nothing changed
-- `reason` -- `ok`, `no_changes`, or an error message
+- `reason` -- `ok`, `no_changes`, `already_generated`, or an error message
+- `replaced`, `not_our_header`, `no_header`, `vendor`, `already_new`,
+  `errors` -- per-classification counts
 
-The full `report.txt` is inlined into the same summary.
+If `not_our_header > 0`, a highlighted bullet flags it as the
+actionable subset; the file paths themselves live in the run log
+(the script echoes `not_our_header: <path>` for each).
 
 ### Repositories with no changes
 
 If a repository has no files matching the old template (e.g. it has
 already been migrated, or it has no Ascensio System SIA headers at all),
 the workflow reports `branch_created=false`, `reason=no_changes`, and
-exits successfully. The bash loop continues to the next repository on
-any single-repo failure, so one repo's outcome never blocks the others.
+that single repo exits successfully. The bash loop continues to the
+next repository on any single-repo failure, but the **overall job
+exits non-zero if any repo failed** so a silently-broken push never
+hides as a green run.
 
 ---
 
@@ -249,39 +259,73 @@ v1 is intentionally narrow:
 
 ## 6. Reports
 
-Reports live only on the workflow run page; nothing is uploaded as
-an artifact.
+Reports are produced at three levels of detail; pick the one that
+suits the question you have.
+
+### 6.1 Run page (Job Summary)
 
 For each target repository the run page shows:
 
 - `base_branch`, `generated_branch`, `branch_created`, `reason`
 - The full counts: `replaced`, `not_our_header`, `no_header`, `vendor`,
   `already_new`, `errors`
-- **A highlighted `not_our_header` section** -- the only actionable
-  classification: files that have our `Ascensio System SIA` holder but
-  did not fuzzy-match the OLD template above
-  `--similarity-threshold`. The summary shows just the count and
-  hint; the **full file list lives in the workflow run log** (the
-  script prints `not_our_header: <path>` for each such file, and
-  `grep` / Ctrl-F finds them all).
+- **A highlighted `not_our_header` bullet** -- the actionable subset:
+  count + hint to review manually or lower `--similarity-threshold`.
+  Paths themselves are not inlined to keep the summary compact.
 
-The same stats also land in the **commit message body**, with
-`not_our_header` first:
+### 6.2 Run log (collapsible per-repo blocks)
+
+Every iteration is wrapped in `::group::` markers, so the run-log
+renders each repository as its own collapsible block. Inside the
+block the script prints:
+
+- `not_our_header: <path>` for every actionable skip (small, always shown)
+- The totals line at the end (`scanned=N replaced=N ...`)
+- All git operations (clone, fetch, push) verbatim
+
+`replaced:` paths are NOT printed by default to keep the run log
+small for big repos. Pass `--verbose` locally to see them.
+
+### 6.3 `reports` artifact (full audit trail)
+
+The workflow uploads a single artifact named `reports`, containing
+one subdirectory per target repository:
+
+```text
+reports/
+  ONLYOFFICE-server/
+    report.txt    -- per-file outcomes + totals (everything, plain text)
+    summary.md    -- the per-repo summary block (same as in the Job Summary)
+```
+
+`report.txt` is the source of truth for "what happened":
+
+- `replaced: <path>` for every modified file
+- `not_our_header: <path>` for every actionable skip
+- `vendor: <path>` for every third-party block left alone
+- `error: <path> (msg)` for any per-file failures
+- Final totals block (`scanned=N replaced=N ...`)
+
+To get just one subset, grep:
+
+```bash
+grep '^replaced:'       report.txt
+grep '^not_our_header:' report.txt
+```
+
+### 6.4 Commit message
+
+The same stats land in the commit message body, with `not_our_header`
+first:
 
 ```text
 [copyright] Update copyright header
 
-not_our_header=15 (review manually or lower --similarity-threshold)
-
-replaced=57 no_header=8 vendor=0 already_new=0 errors=0
+not_our_header=15 replaced=57 no_header=8 vendor=0 already_new=0 errors=0
 ```
 
-This makes the actionable signal visible in `git log`, branch listings,
-and PR titles long after the workflow run page is gone.
-
-A plain-text `report.txt` is produced inside the runner workspace at
-`$GITHUB_WORKSPACE/reports/<owner>-<repo>/report.txt` for use by the
-summary step. It is not persisted past the job.
+So `git log --oneline` and PR titles also surface the actionable
+signal long after the workflow run page is gone.
 
 ### Classifications
 
@@ -293,6 +337,14 @@ summary step. It is not persisted past the job.
 | `SKIP_VENDOR_UNKNOWN_HOLDER` | Block lacks `Ascensio System SIA`. Treated as third-party regardless of path. |
 | `SKIP_NOT_OUR_HEADER`        | Block has our holder but does not fuzzy-match the OLD template above the threshold. |
 | `ERROR`                      | Per-file read/write error. Counted in `errors=` but does not by itself fail the script. |
+
+#### Per-repo `reason` values (workflow level, not script)
+
+| Reason                | Meaning |
+|-----------------------|---------|
+| `ok`                  | Replacement applied and pushed to the disposable branch. |
+| `no_changes`          | Script ran but produced zero diffs (e.g. all files already migrated). |
+| `already_generated`   | The disposable branch for today's date already exists on the remote; repo skipped. Delete the remote branch to re-run. |
 
 ---
 
@@ -331,6 +383,7 @@ python3 replace_header.py
   --new PATH                      # NEW template (default: <script_dir>/templates/new.license)
   --report-dir PATH               # required; must be outside --repo-path
   --dry-run                       # local debugging only; do not write files
+  --verbose                       # also print one line per `replaced` file (off by default)
   --similarity-threshold RATIO    # default 0.75, see Tuning below
   --idempotency-threshold RATIO   # default 1.0, see Tuning below
   --emit-targets CONFIG_PATH      # push-mode helper; print fanout lines from config.json
@@ -477,7 +530,8 @@ code).
        `https://USERNAME:TOKEN@host/repo.git`, and
        `git push --force-with-lease origin HEAD:gen_branch`.
    11. Write per-repo summary to file; concatenate into job summary.
-4. (No artifact upload; everything readable from the run page.)
+4. Upload the `reports` artifact with per-repo `report.txt` and `summary.md`
+   files for the full audit trail.
 
 #### Why a single bash loop instead of `matrix`
 
