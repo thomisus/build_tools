@@ -137,17 +137,7 @@ Don't need everything? You can save time by building only the products you need.
 
   Running the Document Server is a multi-step process because it relies on a few background services. Let's break it down step by step. 
 
-#### **Step 1. Set up dependencies**
-
-The Document Server needs a few things to run correctly:
-
-* **NGINX**: Acts as a web server to handle requests.  
-* **PostgreSQL**: Used as the database to store information.  
-* **RabbitMQ**: A message broker that helps different parts of the server communicate.
-
-Here are the commands to install and configure them.
-
-#### **Install and configure NGINX**
+#### **Step 1. Install and configure NGINX**
 
 1. Install NGINX  
 ```bash
@@ -201,34 +191,7 @@ sudo ln -s /etc/nginx/sites-available/onlyoffice-documentserver /etc/nginx/sites
 ```bash
 sudo nginx -s reload
 ```
-#### **Install and configure PostgreSQL**
 
-1. Install PostgreSQL  
-    ```bash
-    sudo apt-get install postgresql
-    ```
-
-2. Create a database and user. 
-
-    **Note**: The user and password must both be **'onlyoffice'.**  
-    ```bash
-    sudo -i -u postgres psql -c "CREATE USER onlyoffice WITH PASSWORD 'onlyoffice';"
-    sudo -i -u postgres psql -c "CREATE DATABASE onlyoffice OWNER onlyoffice;"
-    ```
-
-3. Configure the database:  
-    ```bash
-    psql -hlocalhost -Uonlyoffice -d onlyoffice -f ../../out/linux_64/onlyoffice/documentserver/server/schema/postgresql/createdb.sql
-    ```
-
-Upon that, you will be asked to provide a password for the onlyoffice PostgreSQL user. Please enter the **onlyoffice** password.
-
-#### **Install RabbitMQ**
-```bash
-sudo apt-get install rabbitmq-server
-```
-
-Now that you have all the dependencies installed, it's time to generate server files. 
 #### **Step 2. Generate server files**
 
 Before running the server, you need to generate font and theme data.
