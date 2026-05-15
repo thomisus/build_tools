@@ -71,7 +71,13 @@ def make():
   if ("windows" == base.host_platform()):
     pkg_target += "-win"
 
-  base.cmd_in_dir(server_dir + "/DocService", "pkg", [".", "-t", pkg_target, "--options", "max_old_space_size=6144", "-o", "docservice"])
+  docservice_pkg_args = [".", "-t", pkg_target]
+  docservice_max_old_space_size = config.option("server-docservice-pkg-max-old-space-size")
+  if "" != docservice_max_old_space_size:
+    docservice_pkg_args += ["--options", "max_old_space_size=" + docservice_max_old_space_size]
+  docservice_pkg_args += ["-o", "docservice"]
+
+  base.cmd_in_dir(server_dir + "/DocService", "pkg", docservice_pkg_args)
   base.cmd_in_dir(server_dir + "/FileConverter", "pkg", [".", "-t", pkg_target, "-o", "converter"])
   base.cmd_in_dir(server_dir + "/Metrics", "pkg", [".", "-t", pkg_target, "-o", "metrics"])
   if "server-admin-panel" in base.get_server_addons() and base.is_exist(server_admin_panel_dir):
